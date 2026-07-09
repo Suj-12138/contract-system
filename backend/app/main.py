@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, contracts, internal
+from app.api.routes import auth, contracts, internal, templates, admin
 from app.bootstrap import bootstrap_admin
 from app.config import get_settings
 from app.storage.json_store import JsonFileStore
@@ -32,9 +32,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(contracts.router)
 app.include_router(internal.router)
-# 以下路由由 P4 追加：
-# app.include_router(templates.router)   ← P4
-# app.include_router(admin.router)       ← P4
+app.include_router(templates.router)
+app.include_router(admin.router)
 
 # 静态文件
 frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"

@@ -55,7 +55,6 @@ export INITIAL_ADMIN_PASSWORD="your-secure-password"
 ```bash
 cd backend
 source .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
-$env:INITIAL_ADMIN_USERNAME="admin"; $env:INITIAL_ADMIN_EMAIL="admin@test.com"; $env:INITIAL_ADMIN_PASSWORD="pass123456"
 python -m uvicorn app.main:app --reload
 ```
 
