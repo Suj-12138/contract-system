@@ -80,3 +80,6 @@ class ContractListResponse(BaseModel):
     """合同列表响应."""
     contracts: list[ContractResponse]
     total: int
+    page: int
+    page_size: int
+    total_pages: int

@@ -84,11 +84,22 @@ class ContractService:
         if status not in (ContractStatus.DRAFT, ContractStatus.REJECTED):
             return "invalid_status"
 
-        # 创建两条审批记录
-        ar1 = make_approval_record(self._store, contract_id, 1, contract["approver_1_id"])
-        ar2 = make_approval_record(self._store, contract_id, 2, contract["approver_2_id"])
-        self._repo.create_approval_record(ar1)
-        self._repo.create_approval_record(ar2)
+        # 检查是否已存在审批记录（重新提交的情况）
+        existing_approvals = self._repo.find_approvals_by_contract(contract_id)
+        if existing_approvals:
+            # 重置现有审批记录
+            for ar in existing_approvals:
+                self._repo.update_approval_record(ar["id"], {
+                    "decision": "pending",
+                    "comment": "",
+                    "decided_at": None,
+                })
+        else:
+            # 创建两条审批记录
+            ar1 = make_approval_record(self._store, contract_id, 1, contract["approver_1_id"])
+            ar2 = make_approval_record(self._store, contract_id, 2, contract["approver_2_id"])
+            self._repo.create_approval_record(ar1)
+            self._repo.create_approval_record(ar2)
 
         # 更新状态为审批中
         self._repo.update_contract(contract_id, {
@@ -99,7 +110,7 @@ class ContractService:
         return {"message": "已提交审批"}
 
     def sign(self, contract_id: str, handler_id: str) -> dict | str:
-        """确认签订."""
+        """确认签订（签订后自动进入履行中状态）."""
         contract = self._repo.find_contract_by_id(contract_id)
         if not contract:
             return "not_found"
@@ -109,19 +120,13 @@ class ContractService:
             return "invalid_status"
 
         now = self._store.utcnow()
+        # 合并更新：直接进入履行中状态
         self._repo.update_contract(contract_id, {
-            "status": ContractStatus.SIGNED.value,
+            "status": ContractStatus.ACTIVE.value,
             "signed_at": now,
             "updated_at": now,
         })
-        self._log(handler_id, "sign_contract", contract_id, "确认签订")
-
-        # 签订后自动进入履行中状态
-        self._repo.update_contract(contract_id, {
-            "status": ContractStatus.ACTIVE.value,
-            "updated_at": self._store.utcnow(),
-        })
-        self._log(handler_id, "activate_contract", contract_id, "合同进入履行中")
+        self._log(handler_id, "sign_contract", contract_id, "确认签订，合同进入履行中")
         return {"message": "已确认签订"}
 
     def archive(self, contract_id: str, user_id: str, role: str) -> dict | str:
@@ -141,6 +146,48 @@ class ContractService:
         })
         self._log(user_id, "archive_contract", contract_id, "归档合同")
         return {"message": "已归档"}
+
+    def renew(self, contract_id: str, handler_id: str, new_expires_at: str | None = None) -> dict | str:
+        """续签合同."""
+        contract = self._repo.find_contract_by_id(contract_id)
+        if not contract:
+            return "not_found"
+        if contract["handler_id"] != handler_id:
+            return "not_owner"
+        if ContractStatus(contract["status"]) != ContractStatus.ACTIVE:
+            return "invalid_status"
+
+        updates = {
+            "status": ContractStatus.RENEWED.value,
+            "updated_at": self._store.utcnow(),
+        }
+        if new_expires_at:
+            updates["expires_at"] = new_expires_at
+        self._repo.update_contract(contract_id, updates)
+        self._log(handler_id, "renew_contract", contract_id, "续签合同")
+        return {"message": "已续签"}
+
+    def delete(self, contract_id: str, handler_id: str) -> dict | str:
+        """删除草稿合同."""
+        contract = self._repo.find_contract_by_id(contract_id)
+        if not contract:
+            return "not_found"
+        if contract["handler_id"] != handler_id:
+            return "not_owner"
+        if ContractStatus(contract["status"]) != ContractStatus.DRAFT:
+            return "invalid_status"
+
+        # 软删除：将状态标记为已删除（或直接从列表中移除）
+        # 这里采用硬删除方式
+        self._delete_contract(contract_id)
+        self._log(handler_id, "delete_contract", contract_id, "删除草稿合同")
+        return {"message": "已删除"}
+
+    def _delete_contract(self, contract_id: str) -> None:
+        """从存储中删除合同."""
+        def mutator(data: dict) -> None:
+            data["contracts"] = [c for c in data["contracts"] if c["id"] != contract_id]
+        self._store.transaction(mutator)
 
     def _can_access(self, contract: dict, user_id: str, role: str) -> bool:
         """判断用户是否可访问合同."""
