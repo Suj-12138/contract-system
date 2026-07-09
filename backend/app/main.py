@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth
+from app.api.routes import auth, internal
 from app.bootstrap import bootstrap_admin
 from app.config import get_settings
 from app.storage.json_store import JsonFileStore
@@ -32,7 +32,7 @@ app.add_middleware(
 app.include_router(auth.router)
 # 以下路由由 P2/P3/P4 追加：
 # app.include_router(contracts.router)   ← P2
-# app.include_router(internal.router)    ← P3
+app.include_router(internal.router)
 # app.include_router(templates.router)   ← P4
 # app.include_router(admin.router)       ← P4
 
