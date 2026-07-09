@@ -1,223 +1,162 @@
-# P4 — 模板 + 管理员功能（全栈）
+# 企业合同管理系统
 
-- **角色**：P4
-- **分支**：`feature/templates-admin`（基于 `main`）
-- **远程**：`origin/feature/templates-admin`
-- **负责模块**：合同模板 CRUD + 管理员用户管理 + 数据看板
-- **开始日期**：2026-07-08
-- **当前进度**：P4-DEV-05 / 10 完成（阶段 A+B 完成，后端全部通过本地验证）
+FastAPI + 原生 HTML/CSS/JS + JSON 文件存储，纯内部使用的合同全生命周期管理系统。
 
----
+## 快速开始
 
-## 一、分支信息
+### 1. 环境要求
 
-```
-main (29372e4)
-  └── feature/templates-admin (2ecd795)  ← P4 当前分支
-        ├── feat: 模板 Schema
-        ├── feat: 模板服务
-        ├── feat: 管理员服务
-        ├── feat: 模板路由
-        └── feat: 管理员路由 + README 重命名
+- Python 3.10+
+- Windows / Mac / Linux
 
-feature/auth-infra                       ← P1 分支（参考 API）
+### 2. 安装依赖
+
+```bash
+cd backend
+pip install -e ".[dev]"
 ```
 
-| 属性 | 值 |
-|------|-----|
-| 当前 commit | `2ecd795` |
-| 基础 commit | `29372e4`（项目基线文档） |
-| P4 文件数 | 5（schemas 1 + services 2 + routes 2） |
-| 未推送 | 有 |
+### 3. 启动系统（二选一）
 
----
+**方式一：双击 `启动演示.bat`**（Windows）
 
-## 二、模块范围
+自动安装依赖 → 创建演示数据 → 启动服务器 → 打开浏览器。
 
-### 负责文件（10 个，不碰其他人的文件）
+**方式二：命令行**
 
-| # | 文件 | 内容 | 状态 |
-|---|------|------|------|
-| 1 | `backend/app/schemas/templates.py` | 模板 Pydantic Schema | ✅ DEV-01 完成 |
-| 2 | `backend/app/services/template_service.py` | 模板业务逻辑 | ✅ DEV-02 完成 |
-| 3 | `backend/app/services/admin_service.py` | 管理员业务逻辑 | ✅ DEV-03 完成 |
-| 4 | `backend/app/api/routes/templates.py` | 模板路由（4 端点） | ✅ DEV-04 完成 |
-| 5 | `backend/app/api/routes/admin.py` | 管理员路由（4 端点） | ✅ DEV-05 完成 |
-| 6 | `frontend/assets/js/admin.js` | 管理页面 JS 模块 | 待开发 |
-| 7 | `frontend/pages/admin/stats.html` | 数据看板页面 | 待开发 |
-| 8 | `frontend/pages/admin/users.html` | 用户管理页面 | 待开发 |
-| 9 | `frontend/pages/admin/templates.html` | 模板管理页面 | 待开发 |
-| 10 | `frontend/assets/css/style.css` | 末尾追加管理样式 | 待追加 |
+```bash
+cd backend
 
-### 不碰的文件
+# 创建演示数据（首次必做）
+python -m app.demo_seed
 
-- P1：认证/存储/仓储/公共 JS
-- P2：合同业务
-- P3：审批引擎和消息
-- P5：测试代码
-
----
-
-## 三、P1 依赖（11 项全部就绪）
-
-| 依赖 | 文件 | 关键 API |
-|------|------|----------|
-| JsonRepository | `app/repositories/json_repository.py` | `list_active_templates()`, `list_all_templates()`, `find_template_by_id()`, `create_template()`, `update_template()` |
-| JsonRepository（用户） | 同上 | `list_users()`, `find_user_by_username()`, `find_user_by_email()`, `find_user_by_id()`, `create_user()`, `update_user()` |
-| JsonRepository（会话） | 同上 | `destroy_sessions_by_user()` |
-| 权限注入 | `app/api/dependencies.py` | `get_current_user()`, `require_admin()` |
-| 错误工具 | `app/api/errors.py` | `error()`, `not_found()`, `conflict()`, `forbidden()` |
-| 密码哈希 | `app/security/passwords.py` | `hash_password()` |
-| 模型工厂 | `app/domain/models.py` | `make_user(store, ...)`, `make_template(store, ...)` |
-| 枚举 | `app/domain/enums.py` | `UserRole.ADMIN/HANDLER/APPROVER` |
-| api-client.js | `frontend/assets/js/api-client.js` | `apiRequest(path, options)` |
-| session-ui.js | `frontend/assets/js/session-ui.js` | `checkSession()`, `renderNav()`（已内置 admin 导航） |
-| style.css | `frontend/assets/css/style.css` | stat-card / table / tag 基础样式 |
-
-> **注意**：P1 代码在 `feature/auth-infra` 分支，尚未合并到 `main`。开发时参考该分支的 API 签名。
-
----
-
-## 四、开发计划（10 DEV）
-
-```
-阶段 A — 后端 Schema + Service
-  P4-DEV-01 ✅ 模板 Schema
-  P4-DEV-02 ✅ 模板 Service
-  P4-DEV-03 ✅ 管理员 Service
-
-阶段 B — 后端 Route
-  P4-DEV-04 ✅ 模板路由
-  P4-DEV-05 ✅ 管理员路由
-
-阶段 C — 前端
-  P4-DEV-06 ⬜ admin.js
-  P4-DEV-07 ⬜ stats.html
-  P4-DEV-08 ⬜ users.html
-  P4-DEV-09 ⬜ templates.html
-  P4-DEV-10 ⬜ CSS 追加
+# 启动服务器
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-详细任务说明见 [P4开发任务清单](04-实施计划/P4开发任务清单.md)。
+浏览器打开 **http://localhost:8000**
 
----
+### 4. 演示账号（密码统一: `demo123456`）
 
-## 五、API 端点（P4 实现）
+| 角色 | 用户名 | 密码 |
+|------|--------|------|
+| 管理员 | `admin` | demo123456 |
+| 经办人 | `张三` | demo123456 |
+| 主管审批 | `李主管` | demo123456 |
+| 法务审批 | `王法务` | demo123456 |
 
-### 模板
+### 5. 运行测试
+
+```bash
+cd backend
+pytest -v
+```
+
+## 依赖清单
+
+| 包 | 用途 |
+|----|------|
+| `fastapi` | Web 框架 |
+| `uvicorn` | ASGI 服务器 |
+| `argon2-cffi` | 密码哈希 |
+| `pydantic` | 数据校验 |
+| `python-dotenv` | 环境变量 |
+| `httpx` | HTTP 客户端（测试） |
+| `pytest` | 测试框架 |
+| `anyio` | 异步测试 |
+
+全部通过 `pip install -e ".[dev]"` 一键安装。
+
+## 功能模块
+
+| 模块 | 说明 |
+|------|------|
+| 用户认证 | 登录/注销/会话管理（Argon2id + Cookie） |
+| 合同管理 | 创建/编辑/提交审批/签订/归档 + 全文搜索 |
+| 审批流转 | 两级审批（主管→法务），顺序控制 |
+| 站内消息 | 审批通知 + 到期提醒 + 已读标记 |
+| 模板管理 | 管理员预设合同模板（自定义字段） |
+| 数据看板 | 合同统计/状态分布/审批通过率 |
+
+## 项目结构
+
+```
+contract-system/
+├── 启动演示.bat
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # 应用入口
+│   │   ├── config.py            # 配置管理
+│   │   ├── bootstrap.py         # 启动引导（自动创建管理员）
+│   │   ├── demo_seed.py         # 演示数据预制脚本
+│   │   ├── api/
+│   │   │   ├── dependencies.py  # 权限注入
+│   │   │   ├── errors.py        # 错误响应
+│   │   │   └── routes/          # 路由层
+│   │   │       ├── auth.py       # 认证
+│   │   │       ├── contracts.py  # 合同
+│   │   │       ├── internal.py   # 审批+消息
+│   │   │       ├── templates.py  # 模板
+│   │   │       └── admin.py      # 管理员
+│   │   ├── services/            # 业务逻辑层
+│   │   ├── schemas/             # Pydantic 模型
+│   │   ├── repositories/        # 仓储层
+│   │   ├── domain/              # 领域模型+枚举
+│   │   ├── storage/             # JSON 文件存储
+│   │   └── security/            # 密码+会话
+│   ├── tests/                   # 测试套件（49条）
+│   └── pyproject.toml           # 项目配置+依赖
+├── frontend/
+│   ├── pages/                   # HTML 页面
+│   │   ├── public/              # 登录页
+│   │   ├── handler/             # 经办人（工作台/合同）
+│   │   ├── internal/            # 审批人（审批/消息）
+│   │   └── admin/               # 管理员（看板/用户/模板）
+│   └── assets/
+│       └── js/                  # 前端 JS 模块
+└── docs/                        # 文档
+    ├── 需求分析.md
+    ├── 概要设计.md
+    ├── 实施计划.md
+    ├── 测试报告.md
+    └── 演示脚本.md
+```
+
+## API 一览
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | `/api/v1/templates/` | 登录用户 | admin 全部 / 其他人仅启用 |
+| POST | `/api/v1/auth/login` | 公开 | 登录 |
+| POST | `/api/v1/auth/logout` | 登录 | 注销 |
+| GET | `/api/v1/auth/me` | 登录 | 当前用户 |
+| POST | `/api/v1/auth/register` | admin | 创建用户 |
+| GET | `/api/v1/auth/approvers` | 登录 | 审批人列表 |
+| GET | `/api/v1/contracts/` | 登录 | 合同列表 |
+| POST | `/api/v1/contracts/` | handler | 创建合同 |
+| GET | `/api/v1/contracts/{id}` | 登录 | 合同详情 |
+| PUT | `/api/v1/contracts/{id}` | handler | 编辑合同 |
+| POST | `/api/v1/contracts/{id}/submit` | handler | 提交审批 |
+| POST | `/api/v1/contracts/{id}/sign` | handler | 确认签订 |
+| POST | `/api/v1/contracts/{id}/archive` | handler/admin | 归档 |
+| GET | `/api/v1/contracts/{id}/approvals` | 登录 | 审批记录 |
+| POST | `/api/v1/contracts/{id}/approve` | approver | 审批通过 |
+| POST | `/api/v1/contracts/{id}/reject` | approver | 审批驳回 |
+| GET | `/api/v1/messages` | 登录 | 消息列表 |
+| GET | `/api/v1/messages/unread-count` | 登录 | 未读数 |
+| PATCH | `/api/v1/messages/{id}/read` | 登录 | 标记已读 |
+| GET | `/api/v1/templates/` | 登录 | 模板列表 |
 | POST | `/api/v1/templates/` | admin | 创建模板 |
 | PUT | `/api/v1/templates/{id}` | admin | 编辑模板 |
-| PATCH | `/api/v1/templates/{id}/status` | admin | 启用/停用 |
-
-### 管理员
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| PATCH | `/api/v1/templates/{id}/status` | admin | 启停模板 |
 | GET | `/api/v1/admin/users` | admin | 用户列表 |
 | POST | `/api/v1/admin/users` | admin | 创建用户 |
-| PATCH | `/api/v1/admin/users/{id}/status` | admin | 启用/禁用 |
+| PATCH | `/api/v1/admin/users/{id}/status` | admin | 启停用户 |
 | GET | `/api/v1/admin/stats` | admin | 数据看板 |
 
----
+## 技术栈
 
-## 六、本地验证结果（2026-07-09）
-
-| # | 端点 | 验证项 | 结果 |
-|---|------|--------|------|
-| 1 | GET `/api/v1/templates/` | admin 全量列表 | ✅ |
-| 2 | GET `/api/v1/templates/` | handler 仅见启用的 | ✅ |
-| 3 | POST `/api/v1/templates/` | 创建模板 | ✅ |
-| 4 | PUT `/api/v1/templates/{id}` | 编辑模板 | ✅ |
-| 5 | PATCH `/api/v1/templates/{id}/status` | 停用/启用 | ✅ |
-| 6 | PUT `/api/v1/templates/nonexistent` | 404 "模板不存在" | ✅ |
-| 7 | GET `/api/v1/admin/users` | 用户列表 | ✅ |
-| 8 | POST `/api/v1/admin/users` | 创建用户 | ✅ |
-| 9 | POST dup username | 409 "用户名已存在" | ✅ |
-| 10 | POST invalid role | 422 "无效的角色类型" | ✅ |
-| 11 | PATCH `/api/v1/admin/users/{id}/status` | 禁用/启用用户 | ✅ |
-| 12 | PATCH nonexistent user | 404 "用户不存在" | ✅ |
-| 13 | GET `/api/v1/admin/stats` | 数据看板 | ✅ |
-| 14 | 无 cookie | 401 "请先登录" | ✅ |
-| 15 | handler → admin 端点 | 403 "权限不足" | ✅ |
-
----
-
-## 七、关键架构模式
-
-```python
-# Service 构造（参考 P1 AuthService）
-class TemplateService:
-    def __init__(self, repo: JsonRepository):
-        self._repo = repo
-
-    def create(self, data, admin):
-        template = make_template(
-            self._repo._store,           # store 用于 new_id() / utcnow()
-            data.name,
-            data.description,
-            [f.model_dump() for f in data.fields_json],
-            admin["id"],
-        )
-        return self._repo.create_template(template)
-
-# 路由工厂（参考 P1 auth.py）
-def get_template_service(store=Depends(get_store)) -> TemplateService:
-    return TemplateService(JsonRepository(store))
-
-# main.py 注册（P4 路由已激活）
-app.include_router(templates.router)   # ← P4 ✅
-app.include_router(admin.router)       # ← P4 ✅
-```
-
----
-
-## 八、开发环境
-
-```bash
-# 安装依赖（需要先切换到 feature/auth-infra 查看 P1 代码）
-cd backend
-python -m venv .venv
-source .venv/Scripts/activate   # Windows
-pip install -e ".[dev]"
-
-# 创建 .env（复制 .env.example）
-# 启动
-python -m uvicorn app.main:app --reload
-```
-
----
-
-## 九、Git 工作流
-
-```bash
-# 每完成一个 DEV：
-git add <P4文件>
-git commit -m "feat: <描述>"
-git push origin feature/templates-admin
-
-# P1 合并前确认所有代码已推送
-```
-
-**Commit 信息规范：**
-1. `feat: 模板 Schema — TemplateCreate/TemplateUpdate/TemplateStatusUpdate/TemplateResponse`
-2. `feat: 模板服务 — CRUD + 启用/停用`
-3. `feat: 管理员服务 — 用户管理 + 数据看板统计`
-4. `feat: 模板路由 — /api/v1/templates CRUD`
-5. `feat: 管理员路由 — /api/v1/admin 用户管理 + 统计`
-6. `feat: 模板+管理员前端 — stats.html + users.html + templates.html + admin.js`
-
----
-
-## 十、文档索引
-
-- **本仓库**：仅含 `README.md` + 源代码
-- **详细文档**（`D:\VScode-AI\together\docs\`，不入仓库）：
-  - `README.md` — 全部文档导航
-  - `04-实施计划/P4开发任务清单.md` — 10 个 DEV 详细说明（v0.7）
-  - `05-开发过程/P4开发过程.md` — 开发日志与验证记录（16 项验证）
-  - `02-系统设计/系统设计说明书.md` — 整体架构
-  - `01-需求分析/产品需求文档.md` — 需求基线
+- **后端**: Python 3.10+ / FastAPI / Pydantic v2
+- **存储**: JSON 文件（原子写入 + 线程安全）
+- **认证**: Argon2id 密码哈希 + HttpOnly Cookie Session
+- **前端**: 原生 HTML/CSS/JS（ES Modules，无框架）
+- **测试**: pytest + httpx + anyio
