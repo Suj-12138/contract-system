@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新建合同 - 企业合同管理系统</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <div id="nav-container"></div>
+  <div class="container">
+    <div class="card">
+      <h2>新建合同</h2>
+      <form id="contract-form">
+        <div class="form-group">
+          <label for="title">合同标题 *</label>
+          <input type="text" id="title" name="title" required maxlength="200">
+        </div>
+        <div class="form-group">
+          <label for="counterparty">对方名称 *</label>
+          <input type="text" id="counterparty" name="counterparty" required maxlength="200">
+        </div>
+        <div class="form-group">
+          <label for="amount">金额</label>
+          <input type="number" id="amount" name="amount" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label for="expires_at">到期日期</label>
+          <input type="date" id="expires_at" name="expires_at">
+        </div>
+        <div class="form-group">
+          <label for="approver_1_id">一级审批人(主管) *</label>
+          <select id="approver_1_id" name="approver_1_id" required></select>
+        </div>
+        <div class="form-group">
+          <label for="approver_2_id">二级审批人(法务) *</label>
+          <select id="approver_2_id" name="approver_2_id" required></select>
+        </div>
+        <div class="form-group">
+          <label for="content">合同内容(JSON格式)</label>
+          <textarea id="content" name="content" placeholder='{"甲方": "我司", "乙方": "对方公司"}'></textarea>
+        </div>
+        <div id="error-message" class="error-message" style="display:none;"></div>
+        <button type="submit" class="btn-primary">创建合同</button>
+        <a href="/pages/handler/contracts.html" class="btn-secondary" style="display:inline-block;margin-left:8px;">返回</a>
+      </form>
+    </div>
+  </div>
+  <script type="module">
+    import { apiRequest } from '/assets/js/api-client.js';
+    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+
+    let currentUser = null;
+
+    async function init() {
+      currentUser = await checkSession();
+      if (!currentUser) return;
+      if (currentUser.role !== 'handler') {
+        document.querySelector('.card').innerHTML = '<div class="error-message">仅经办人可创建合同</div>';
+        return;
+      }
+      renderNav(currentUser);
+      loadApprovers();
+    }
+
+    async function loadApprovers() {
+      const result = await apiRequest('/api/v1/admin/users');
+      if (result.error) {
+        document.getElementById('error-message').textContent = '无法加载审批人列表';
+        document.getElementById('error-message').style.display = 'block';
+        return;
+      }
+      const approvers = (result.users || []).filter(u => u.role === 'approver' && u.is_active);
+      const select1 = document.getElementById('approver_1_id');
+      const select2 = document.getElementById('approver_2_id');
+      approvers.forEach(a => {
+        select1.innerHTML += `<option value="${a.id}">${a.username}</option>`;
+        select2.innerHTML += `<option value="${a.id}">${a.username}</option>`;
+      });
+      if (!approvers.length) {
+        document.getElementById('error-message').textContent = '系统中没有审批人，请先创建审批人账号';
+        document.getElementById('error-message').style.display = 'block';
+      }
+    }
+
+    document.getElementById('contract-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+      const contentStr = formData.get('content');
+      let contentJson = {};
+      if (contentStr.trim()) {
+        try {
+          contentJson = JSON.parse(contentStr);
+        } catch {
+          document.getElementById('error-message').textContent = '合同内容JSON格式错误';
+          document.getElementById('error-message').style.display = 'block';
+          return;
+        }
+      }
+      const body = {
+        title: formData.get('title'),
+        counterparty: formData.get('counterparty'),
+        amount: formData.get('amount') ? parseFloat(formData.get('amount')) : null,
+        expires_at: formData.get('expires_at') || null,
+        approver_1_id: formData.get('approver_1_id'),
+        approver_2_id: formData.get('approver_2_id'),
+        content_json: contentJson,
+      };
+      const result = await apiRequest('/api/v1/contracts', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      if (result.error) {
+        document.getElementById('error-message').textContent = result.error.message;
+        document.getElementById('error-message').style.display = 'block';
+        return;
+      }
+      alert('合同创建成功');
+      window.location.href = `/pages/handler/contract-detail.html?id=${result.contract.id}`;
+    });
+
+    init();
+  </script>
+</body>
+</html>

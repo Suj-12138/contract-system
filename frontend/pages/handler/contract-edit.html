@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编辑合同 - 企业合同管理系统</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <div id="nav-container"></div>
+  <div class="container">
+    <div class="card">
+      <h2>编辑合同</h2>
+      <form id="contract-form">
+        <div class="form-group">
+          <label for="title">合同标题 *</label>
+          <input type="text" id="title" name="title" required maxlength="200">
+        </div>
+        <div class="form-group">
+          <label for="counterparty">对方名称 *</label>
+          <input type="text" id="counterparty" name="counterparty" required maxlength="200">
+        </div>
+        <div class="form-group">
+          <label for="amount">金额</label>
+          <input type="number" id="amount" name="amount" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label for="expires_at">到期日期</label>
+          <input type="date" id="expires_at" name="expires_at">
+        </div>
+        <div class="form-group">
+          <label for="content">合同内容(JSON格式)</label>
+          <textarea id="content" name="content"></textarea>
+        </div>
+        <div id="error-message" class="error-message" style="display:none;"></div>
+        <button type="submit" class="btn-primary">保存</button>
+        <a href="/pages/handler/contracts.html" class="btn-secondary" style="display:inline-block;margin-left:8px;">返回</a>
+      </form>
+    </div>
+  </div>
+  <script type="module">
+    import { apiRequest } from '/assets/js/api-client.js';
+    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+
+    let currentUser = null;
+    let contractId = null;
+
+    async function init() {
+      currentUser = await checkSession();
+      if (!currentUser) return;
+      renderNav(currentUser);
+      contractId = new URLSearchParams(window.location.search).get('id');
+      if (!contractId) {
+        document.querySelector('.card').innerHTML = '<div class="error-message">缺少合同ID</div>';
+        return;
+      }
+      loadContract();
+    }
+
+    async function loadContract() {
+      const result = await apiRequest(`/api/v1/contracts/${contractId}`);
+      if (result.error) {
+        document.querySelector('.card').innerHTML = `<div class="error-message">${result.error.message}</div>`;
+        return;
+      }
+      const c = result.contract;
+      if (c.status !== 'draft' && c.status !== 'rejected') {
+        document.querySelector('.card').innerHTML = '<div class="error-message">仅草稿或已驳回状态可编辑</div>';
+        return;
+      }
+      document.getElementById('title').value = c.title;
+      document.getElementById('counterparty').value = c.counterparty;
+      document.getElementById('amount').value = c.amount || '';
+      if (c.expires_at) {
+        const date = c.expires_at.split('T')[0];
+        document.getElementById('expires_at').value = date;
+      }
+      document.getElementById('content').value = c.content_json ? JSON.stringify(c.content_json, null, 2) : '';
+    }
+
+    document.getElementById('contract-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+      const contentStr = formData.get('content');
+      let contentJson = null;
+      if (contentStr.trim()) {
+        try {
+          contentJson = JSON.parse(contentStr);
+        } catch {
+          document.getElementById('error-message').textContent = '合同内容JSON格式错误';
+          document.getElementById('error-message').style.display = 'block';
+          return;
+        }
+      }
+      const body = {};
+      const title = formData.get('title');
+      const counterparty = formData.get('counterparty');
+      const amount = formData.get('amount');
+      const expires_at = formData.get('expires_at');
+      if (title) body.title = title;
+      if (counterparty) body.counterparty = counterparty;
+      if (amount) body.amount = parseFloat(amount);
+      if (expires_at) body.expires_at = expires_at;
+      if (contentJson) body.content_json = contentJson;
+
+      const result = await apiRequest(`/api/v1/contracts/${contractId}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      if (result.error) {
+        document.getElementById('error-message').textContent = result.error.message;
+        document.getElementById('error-message').style.display = 'block';
+        return;
+      }
+      alert('保存成功');
+      window.location.href = `/pages/handler/contract-detail.html?id=${contractId}`;
+    });
+
+    init();
+  </script>
+</body>
+</html>

@@ -7,17 +7,106 @@
   <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
-  <header id="nav-container"></header>
-  <main class="main-content">
+  <div id="nav-container"></div>
+  <div class="container">
     <h2>工作台</h2>
-    <div class="card">
-      <p>👋 欢迎回来！合同管理功能将在 P2 阶段完成。</p>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="number" id="stat-draft">0</div>
+        <div class="label">草稿</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="stat-review">0</div>
+        <div class="label">审批中</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="stat-active">0</div>
+        <div class="label">履行中</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="stat-expired">0</div>
+        <div class="label">已到期</div>
+      </div>
     </div>
-  </main>
+    <div class="card">
+      <h3>快捷入口</h3>
+      <p>
+        <a href="/pages/handler/contracts.html">查看合同列表</a> |
+        <a href="/pages/handler/contract-form.html">新建合同</a>
+      </p>
+    </div>
+    <div class="card">
+      <h3>最近合同</h3>
+      <table id="recent-contracts">
+        <thead>
+          <tr><th>标题</th><th>对方名称</th><th>状态</th><th>更新时间</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div id="empty-recent" class="empty-state" style="display:none;">暂无合同</div>
+    </div>
+  </div>
   <script type="module">
+    import { apiRequest } from '/assets/js/api-client.js';
     import { checkSession, renderNav } from '/assets/js/session-ui.js';
-    const user = await checkSession();
-    if (user) renderNav(user);
+    import { getStatusTag, formatDate } from '/assets/js/handler.js';
+
+    const STATUS_MAP = {
+      draft: '草稿',
+      review: '审批中',
+      approved: '已通过',
+      rejected: '已驳回',
+      signed: '已签订',
+      active: '履行中',
+      expired: '已到期',
+      renewed: '已续签',
+      archived: '已归档',
+    };
+
+    async function init() {
+      const user = await checkSession();
+      if (!user) return;
+      renderNav(user);
+      loadStats(user);
+    }
+
+    async function loadStats(user) {
+      const result = await apiRequest('/api/v1/contracts');
+      if (result.error) return;
+      const contracts = result.contracts || [];
+      const stats = { draft: 0, review: 0, active: 0, expired: 0 };
+      contracts.forEach(c => {
+        if (c.status === 'draft') stats.draft++;
+        if (c.status === 'review') stats.review++;
+        if (c.status === 'active') stats.active++;
+        if (c.status === 'expired') stats.expired++;
+      });
+      document.getElementById('stat-draft').textContent = stats.draft;
+      document.getElementById('stat-review').textContent = stats.review;
+      document.getElementById('stat-active').textContent = stats.active;
+      document.getElementById('stat-expired').textContent = stats.expired;
+
+      // 最近合同
+      const recent = contracts.slice(0, 5);
+      const tbody = document.querySelector('#recent-contracts tbody');
+      const empty = document.getElementById('empty-recent');
+      if (!recent.length) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+        tbody.innerHTML = recent.map(c => `
+          <tr>
+            <td><a href="/pages/handler/contract-detail.html?id=${c.id}">${c.title}</a></td>
+            <td>${c.counterparty}</td>
+            <td>${getStatusTag(c.status, STATUS_MAP[c.status] || c.status)}</td>
+            <td>${formatDate(c.updated_at)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>
