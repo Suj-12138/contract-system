@@ -30,7 +30,6 @@ app.add_middleware(
 
 # 路由注册
 app.include_router(auth.router)
-app.include_router(auth.router)
 app.include_router(contracts.router)
 app.include_router(internal.router)
 app.include_router(templates.router)
