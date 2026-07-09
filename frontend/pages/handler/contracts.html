@@ -65,6 +65,12 @@
       currentUser = await checkSession();
       if (!currentUser) return;
       renderNav(currentUser);
+      // 从 URL 读取预设的状态筛选
+      const urlParams = new URLSearchParams(window.location.search);
+      const presetStatus = urlParams.get('status');
+      if (presetStatus) {
+        document.getElementById('status-filter').value = presetStatus;
+      }
       loadContracts();
     }
 

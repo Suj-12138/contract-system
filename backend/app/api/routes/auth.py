@@ -8,6 +8,7 @@ from app.config import get_settings
 from app.repositories.json_repository import JsonRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, UserResponse
 from app.services.auth_service import AuthService
+from app.storage.json_store import JsonFileStore
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -66,3 +67,12 @@ def register(body: RegisterRequest, admin: dict = Depends(require_admin),
     if result == "invalid_role":
         error("VALIDATION_ERROR", "无效的角色类型", 422)
     return {"user": UserResponse(**result).model_dump()}
+
+
+@router.get("/approvers")
+def list_approvers(user: dict = Depends(get_current_user),
+                   store: JsonFileStore = Depends(get_store)):
+    """获取活跃审批人列表（所有登录用户可访问）."""
+    repo = JsonRepository(store)
+    approvers = [u for u in repo.list_users_by_role("approver") if u.get("is_active", True)]
+    return {"approvers": [UserResponse(**a).model_dump() for a in approvers]}

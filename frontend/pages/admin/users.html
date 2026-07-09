@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户管理 - 企业合同管理系统</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <div id="nav-container"></div>
+  <div class="container">
+    <h2>用户管理</h2>
+    <div class="card" id="create-section">
+      <h3>创建用户</h3>
+      <form id="create-form" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+          <label for="new-username">用户名</label>
+          <input type="text" id="new-username" required minlength="3" maxlength="50" style="width:120px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="new-email">邮箱</label>
+          <input type="email" id="new-email" required style="width:180px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="new-password">密码</label>
+          <input type="password" id="new-password" required minlength="8" style="width:120px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="new-role">角色</label>
+          <select id="new-role" style="width:100px;">
+            <option value="handler">经办人</option>
+            <option value="approver">审批人</option>
+            <option value="admin">管理员</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary">创建</button>
+      </form>
+      <div id="create-msg" style="margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <h3>用户列表</h3>
+      <table id="users-table">
+        <thead><tr><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <script type="module">
+    import { apiRequest } from '/assets/js/api-client.js';
+    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+
+    const user = await checkSession();
+    if (!user) throw new Error('未登录');
+    if (user.role !== 'admin') {
+      document.querySelector('.container').innerHTML = '<div class="error-message">仅管理员可访问</div>';
+      throw new Error('仅管理员');
+    }
+    renderNav(user);
+    loadUsers();
+
+    async function loadUsers() {
+      const result = await apiRequest('/api/v1/admin/users');
+      if (result.error) {
+        document.querySelector('#users-table tbody').innerHTML = `<tr><td colspan="6">加载失败: ${result.error.message}</td></tr>`;
+        return;
+      }
+      const users = result.users || [];
+      const ROLE_MAP = { admin: '管理员', handler: '经办人', approver: '审批人' };
+      document.querySelector('#users-table tbody').innerHTML = users.map(u => `
+        <tr>
+          <td>${escapeHtml(u.username)}</td>
+          <td>${escapeHtml(u.email)}</td>
+          <td>${ROLE_MAP[u.role] || u.role}</td>
+          <td><span style="color:${u.is_active ? '#52c41a' : '#ff4d4f'};">${u.is_active ? '启用' : '禁用'}</span></td>
+          <td>${u.created_at ? u.created_at.slice(0,10) : '-'}</td>
+          <td><button class="btn-sm ${u.is_active ? 'btn-danger' : 'btn-primary'}" data-id="${u.id}" data-action="${u.is_active ? 'disable' : 'enable'}">${u.is_active ? '禁用' : '启用'}</button></td>
+        </tr>
+      `).join('');
+
+      document.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const uid = btn.dataset.id;
+          const isActive = btn.dataset.action === 'enable';
+          const result = await apiRequest(`/api/v1/admin/users/${uid}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ is_active: isActive }),
+          });
+          if (result.error) {
+            alert(result.error.message);
+            return;
+          }
+          loadUsers();
+        });
+      });
+    }
+
+    document.getElementById('create-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const body = {
+        username: document.getElementById('new-username').value,
+        email: document.getElementById('new-email').value,
+        password: document.getElementById('new-password').value,
+        role: document.getElementById('new-role').value,
+      };
+      const result = await apiRequest('/api/v1/admin/users', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      const msgEl = document.getElementById('create-msg');
+      if (result.error) {
+        msgEl.innerHTML = `<div class="error-message">${result.error.message}</div>`;
+        return;
+      }
+      msgEl.innerHTML = '<div class="success-message">创建成功</div>';
+      form.reset();
+      loadUsers();
+    });
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
