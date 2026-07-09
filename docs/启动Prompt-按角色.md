@@ -14,6 +14,7 @@
    python -m venv .venv
    source .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
    pip install -e ".[dev]"
+   cp .env.example .env            # 创建本地环境配置（.env 不会被提交）
    ```
 4. 确保参考项目 `enterticketsystem/` 也在本地，让 Claude Code 能读到它的代码风格
 5. 打开 Claude Code，粘贴你对应角色的 Prompt

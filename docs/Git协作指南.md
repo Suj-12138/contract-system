@@ -75,6 +75,25 @@ source .venv/Scripts/activate       # Linux/macOS: source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+然后创建 `.env` 配置文件（`.gitignore` 已排除，每人自己创建）：
+
+```bash
+cp .env.example .env
+```
+
+或手动创建 `backend/.env`，内容：
+```
+APP_NAME=企业合同管理系统
+APP_ENV=local
+SESSION_COOKIE_NAME=contract_session
+SESSION_COOKIE_SECURE=false
+SESSION_TTL_HOURS=8
+EXPIRY_WARN_DAYS=30
+INITIAL_ADMIN_USERNAME=admin
+INITIAL_ADMIN_EMAIL=admin@contract-system.local
+INITIAL_ADMIN_PASSWORD=admin123456
+```
+
 ### 3. 创建自己的开发分支
 
 ```bash
