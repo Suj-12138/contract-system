@@ -13,7 +13,7 @@
 3. Repository name：`contract-system`
 4. **不要勾选** "Add a README file" 和 "Add .gitignore"（项目里已经有了）
 5. 点击 `Create repository`
-6. 记下仓库地址：`https://github.com/你的用户名/contract-system.git`
+6. 记下仓库地址：`https://github.com/Suj-12138/contract-system.git`
 
 ### 2. 本地项目推送到 GitHub
 
@@ -29,8 +29,8 @@ git init
 git add -A
 git commit -m "init: 项目基线文档 — 需求分析 + 概要设计 + 实施计划"
 
-# 关联 GitHub 仓库（把下面地址换成你的）
-git remote add origin https://github.com/你的用户名/contract-system.git
+# 关联 GitHub 仓库
+git remote add origin https://github.com/Suj-12138/contract-system.git
 
 # 推送到 GitHub
 git branch -M main
@@ -60,7 +60,7 @@ git push -u origin feature/auth-infra
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/你的用户名/contract-system.git
+git clone https://github.com/Suj-12138/contract-system.git
 cd contract-system
 ```
 
