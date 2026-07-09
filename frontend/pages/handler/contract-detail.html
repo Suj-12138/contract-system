@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>合同详情 - 企业合同管理系统</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <div id="nav-container"></div>
+  <div class="container">
+    <div class="card">
+      <h2 id="contract-title">合同详情</h2>
+      <div id="contract-info"></div>
+      <div id="approval-progress"></div>
+      <div id="action-buttons" style="margin-top:20px;"></div>
+    </div>
+    <div class="card">
+      <h3>审批记录</h3>
+      <table id="approvals-table">
+        <thead>
+          <tr><th>级别</th><th>审批人</th><th>状态</th><th>意见</th><th>时间</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>操作历史</h3>
+      <table id="audit-table">
+        <thead>
+          <tr><th>操作</th><th>详情</th><th>时间</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <script type="module">
+    import { apiRequest } from '/assets/js/api-client.js';
+    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+    import { getStatusTag, formatDate, formatAmount } from '/assets/js/handler.js';
+
+    const STATUS_MAP = {
+      draft: '草稿',
+      review: '审批中',
+      approved: '已通过',
+      rejected: '已驳回',
+      signed: '已签订',
+      active: '履行中',
+      expired: '已到期',
+      renewed: '已续签',
+      archived: '已归档',
+    };
+
+    const DECISION_MAP = {
+      pending: '待审批',
+      approved: '已通过',
+      rejected: '已驳回',
+    };
+
+    let currentUser = null;
+    let contractData = null;
+
+    async function init() {
+      currentUser = await checkSession();
+      if (!currentUser) return;
+      renderNav(currentUser);
+      const id = new URLSearchParams(window.location.search).get('id');
+      if (!id) {
+        document.getElementById('contract-info').innerHTML = '<div class="error-message">缺少合同ID</div>';
+        return;
+      }
+      loadContract(id);
+    }
+
+    async function loadContract(id) {
+      const result = await apiRequest(`/api/v1/contracts/${id}`);
+      if (result.error) {
+        document.getElementById('contract-info').innerHTML = `<div class="error-message">${result.error.message}</div>`;
+        return;
+      }
+      contractData = result;
+      renderContract(result);
+    }
+
+    function renderContract(data) {
+      const c = data.contract;
+      document.getElementById('contract-title').textContent = c.title;
+      document.getElementById('contract-info').innerHTML = `
+        <table>
+          <tr><td style="width:120px;">对方名称</td><td>${c.counterparty}</td></tr>
+          <tr><td>金额</td><td>${c.amount ? formatAmount(c.amount) : '-'}</td></tr>
+          <tr><td>状态</td><td>${getStatusTag(c.status, STATUS_MAP[c.status] || c.status)}</td></tr>
+          <tr><td>到期日期</td><td>${c.expires_at ? formatDate(c.expires_at) : '-'}</td></tr>
+          <tr><td>签订日期</td><td>${c.signed_at ? formatDate(c.signed_at) : '-'}</td></tr>
+          <tr><td>创建时间</td><td>${formatDate(c.created_at)}</td></tr>
+        </table>
+        ${c.content_json && Object.keys(c.content_json).length ? `
+          <h4 style="margin-top:16px;">合同内容</h4>
+          <table>
+            ${Object.entries(c.content_json).map(([k, v]) => `<tr><td style="width:120px;">${k}</td><td>${v}</td></tr>`).join('')}
+          </table>
+        ` : ''}
+      `;
+      // 审批进度
+      const approvals = data.approvals || [];
+      document.getElementById('approval-progress').innerHTML = `
+        <h3 style="margin-top:16px;">审批进度</h3>
+        <div class="approval-progress">
+          ${approvals.map(a => `
+            <div class="approval-step ${a.decision}">
+              <strong>${a.level === 1 ? '一级审批(主管)' : '二级审批(法务)'}</strong>
+              <br>${DECISION_MAP[a.decision] || a.decision}
+              ${a.comment ? `<br><small>${a.comment}</small>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+      // 审批记录表
+      document.getElementById('approvals-table').querySelector('tbody').innerHTML = approvals.map(a => `
+        <tr>
+          <td>${a.level === 1 ? '一级' : '二级'}</td>
+          <td>${a.approver_id}</td>
+          <td>${getStatusTag(a.decision, DECISION_MAP[a.decision] || a.decision)}</td>
+          <td>${a.comment || '-'}</td>
+          <td>${a.decided_at ? formatDate(a.decided_at) : '-'}</td>
+        </tr>
+      `).join('');
+      // 操作历史
+      document.getElementById('audit-table').querySelector('tbody').innerHTML = (data.audit_logs || []).map(l => `
+        <tr><td>${l.action}</td><td>${l.detail}</td><td>${formatDate(l.created_at)}</td></tr>
+      `).join('');
+      // 操作按钮
+      renderActions(c);
+    }
+
+    function renderActions(c) {
+      const btns = [];
+      if (c.handler_id === currentUser.id) {
+        if (c.status === 'draft' || c.status === 'rejected') {
+          btns.push(`<a href="/pages/handler/contract-edit.html?id=${c.id}" class="btn-secondary">编辑</a>`);
+          btns.push(`<button id="submit-btn" class="btn-primary">提交审批</button>`);
+        }
+        if (c.status === 'approved') {
+          btns.push(`<button id="sign-btn" class="btn-primary">确认签订</button>`);
+        }
+      }
+      if (c.status === 'expired' || c.status === 'renewed') {
+        if (currentUser.role === 'admin' || c.handler_id === currentUser.id) {
+          btns.push(`<button id="archive-btn" class="btn-secondary">归档</button>`);
+        }
+      }
+      btns.push(`<a href="/pages/handler/contracts.html" class="btn-secondary">返回列表</a>`);
+      document.getElementById('action-buttons').innerHTML = btns.join(' ');
+
+      document.getElementById('submit-btn')?.addEventListener('click', async () => {
+        const result = await apiRequest(`/api/v1/contracts/${c.id}/submit`, { method: 'POST' });
+        if (result.error) {
+          alert(result.error.message);
+          return;
+        }
+        alert('已提交审批');
+        loadContract(c.id);
+      });
+      document.getElementById('sign-btn')?.addEventListener('click', async () => {
+        const result = await apiRequest(`/api/v1/contracts/${c.id}/sign`, { method: 'POST' });
+        if (result.error) {
+          alert(result.error.message);
+          return;
+        }
+        alert('已确认签订');
+        loadContract(c.id);
+      });
+      document.getElementById('archive-btn')?.addEventListener('click', async () => {
+        const result = await apiRequest(`/api/v1/contracts/${c.id}/archive`, { method: 'POST' });
+        if (result.error) {
+          alert(result.error.message);
+          return;
+        }
+        alert('已归档');
+        loadContract(c.id);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
