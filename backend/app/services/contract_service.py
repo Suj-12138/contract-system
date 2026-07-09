@@ -15,6 +15,8 @@ class ContractService:
 
     def create(self, handler_id: str, data: dict) -> dict:
         """创建合同."""
+        # 合并结构化字段和正文为 content_json
+        content_json = self._build_content_json(data)
         contract = make_contract(
             self._store,
             title=data["title"],
@@ -23,13 +25,25 @@ class ContractService:
             approver_1_id=data["approver_1_id"],
             approver_2_id=data["approver_2_id"],
             template_id=data.get("template_id"),
-            content_json=data.get("content_json", {}),
+            content_json=content_json,
             amount=data.get("amount"),
             expires_at=data.get("expires_at"),
         )
         self._repo.create_contract(contract)
         self._log(handler_id, "create_contract", contract["id"], "创建合同")
         return contract
+
+    def _build_content_json(self, data: dict) -> dict:
+        """从请求数据构建 content_json."""
+        result = {}
+        result["甲方"] = data.get("party_a", "本公司")
+        result["乙方"] = data.get("party_b", data.get("counterparty", ""))
+        if data.get("amount"):
+            result["合同金额"] = f"¥{data['amount']:,.2f}"
+        if data.get("expires_at"):
+            result["到期日期"] = data["expires_at"]
+        result["合同正文"] = data.get("content_text", "")
+        return result
 
     def update(self, contract_id: str, handler_id: str, updates: dict) -> dict | str:
         """编辑合同（仅草稿或已驳回状态）."""
@@ -41,6 +55,21 @@ class ContractService:
         status = ContractStatus(contract["status"])
         if status not in (ContractStatus.DRAFT, ContractStatus.REJECTED):
             return "invalid_status"
+
+        # 合并 content_json 更新
+        if any(k in updates for k in ("party_a", "party_b", "content_text", "amount", "expires_at")):
+            merged = dict(contract.get("content_json", {}))
+            if "party_a" in updates:
+                merged["甲方"] = updates.pop("party_a")
+            if "party_b" in updates:
+                merged["乙方"] = updates.pop("party_b")
+            if "amount" in updates:
+                merged["合同金额"] = f"¥{updates['amount']:,.2f}"
+            if "expires_at" in updates:
+                merged["到期日期"] = updates["expires_at"]
+            if "content_text" in updates:
+                merged["合同正文"] = updates.pop("content_text")
+            updates["content_json"] = merged
 
         updates["updated_at"] = self._store.utcnow()
         updated = self._repo.update_contract(contract_id, updates)

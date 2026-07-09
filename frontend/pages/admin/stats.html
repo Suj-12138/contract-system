@@ -5,20 +5,131 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>数据看板 - 企业合同管理系统</title>
   <link rel="stylesheet" href="/assets/css/style.css">
+  <style>
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .stat-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(-2px);
+    }
+    .stat-card .stat-num {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1677ff;
+    }
+    .stat-card .stat-label {
+      font-size: 14px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .progress-bar-wrap {
+      background: #f0f0f0;
+      border-radius: 4px;
+      height: 20px;
+      margin: 4px 0 12px 0;
+      overflow: hidden;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+  </style>
 </head>
 <body>
-  <header id="nav-container"></header>
-  <main class="main-content">
+  <div id="nav-container"></div>
+  <div class="container">
     <h2>数据看板</h2>
+    <div class="stats-grid" id="stats-grid">加载中...</div>
     <div class="card">
-      <p>👋 欢迎，管理员！系统已正常运行。</p>
-      <p>数据看板功能将在 P4 阶段完成。</p>
+      <h3>合同状态分布</h3>
+      <div id="status-breakdown"></div>
     </div>
-  </main>
+    <div class="card" style="margin-top:16px;">
+      <h3>审批通过率</h3>
+      <div id="approval-rate"></div>
+    </div>
+  </div>
   <script type="module">
+    import { apiRequest } from '/assets/js/api-client.js';
     import { checkSession, renderNav } from '/assets/js/session-ui.js';
+
     const user = await checkSession();
-    if (user) renderNav(user);
+    if (!user) throw new Error('未登录');
+    if (user.role !== 'admin') {
+      document.querySelector('.container').innerHTML = '<div class="error-message">仅管理员可访问</div>';
+      throw new Error('仅管理员');
+    }
+    renderNav(user);
+
+    const stats = await apiRequest('/api/v1/admin/stats');
+    if (stats.error) {
+      document.getElementById('stats-grid').innerHTML = `<div class="error-message">加载失败: ${stats.error.message}</div>`;
+    } else {
+      const dist = stats.status_distribution || {};
+
+      const cards = [
+        { label: '合同总数', value: stats.total_contracts ?? 0, link: '/pages/handler/contracts.html' },
+        { label: '审批中', value: dist.review ?? 0, link: '/pages/handler/contracts.html?status=review' },
+        { label: '履行中', value: dist.active ?? 0, link: '/pages/handler/contracts.html?status=active' },
+        { label: '即将到期', value: stats.expiring_soon ?? 0, link: '/pages/handler/contracts.html?status=active' },
+        { label: '用户总数', value: stats.total_users ?? 0, link: '/pages/admin/users.html' },
+        { label: '模板总数', value: stats.total_templates ?? 0, link: '/pages/admin/templates.html' },
+      ];
+      document.getElementById('stats-grid').innerHTML = cards.map(c =>
+        `<a href="${c.link}" class="stat-card"><div class="stat-num">${c.value}</div><div class="stat-label">${c.label}</div></a>`
+      ).join('');
+
+      // 状态分布
+      const STATUS_LABELS = {
+        draft: '草稿', review: '审批中', approved: '已通过', rejected: '已驳回',
+        signed: '已签订', active: '履行中', expired: '已到期', renewed: '已续签', archived: '已归档',
+      };
+      const total = stats.total_contracts || 1;
+      const COLORS = {
+        draft: '#999', review: '#faad14', approved: '#52c41a', rejected: '#ff4d4f',
+        signed: '#1677ff', active: '#1677ff', expired: '#faad14', renewed: '#52c41a', archived: '#999',
+      };
+      const entries = Object.entries(dist);
+      if (entries.length === 0) {
+        document.getElementById('status-breakdown').innerHTML = '<p style="color:#999;">暂无合同数据</p>';
+      } else {
+        document.getElementById('status-breakdown').innerHTML = entries.map(([k, v]) => {
+          const pct = Math.round(v / total * 100);
+          return `<div style="margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:14px;">
+              <span>${STATUS_LABELS[k] || k}</span><span>${v} (${pct}%)</span>
+            </div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner" style="width:${pct}%;background:${COLORS[k] || '#1677ff'};"></div></div>
+          </div>`;
+        }).join('');
+      }
+
+      // 审批通过率
+      const rate = stats.approval_rate ?? 0;
+      const ratePct = Math.round(rate * 100);
+      document.getElementById('approval-rate').innerHTML = `
+        <div style="font-size:28px;font-weight:700;color:#52c41a;">${ratePct}%</div>
+        <div class="progress-bar-wrap" style="margin-top:8px;"><div class="progress-bar-inner" style="width:${ratePct}%;background:#52c41a;"></div></div>
+        <p style="color:#999;font-size:13px;margin-top:4px;">已审批通过的记录占总审批记录的比例</p>
+      `;
+    }
   </script>
 </body>
 </html>

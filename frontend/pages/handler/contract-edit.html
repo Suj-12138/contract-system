@@ -16,22 +16,35 @@
           <label for="title">合同标题 *</label>
           <input type="text" id="title" name="title" required maxlength="200">
         </div>
-        <div class="form-group">
-          <label for="counterparty">对方名称 *</label>
-          <input type="text" id="counterparty" name="counterparty" required maxlength="200">
+
+        <div class="form-row" style="display:flex;gap:16px;">
+          <div class="form-group" style="flex:1;">
+            <label for="party_a">甲方</label>
+            <input type="text" id="party_a" name="party_a" maxlength="200">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="counterparty">乙方（对方名称）*</label>
+            <input type="text" id="counterparty" name="counterparty" required maxlength="200">
+          </div>
         </div>
-        <div class="form-group">
-          <label for="amount">金额</label>
-          <input type="number" id="amount" name="amount" min="0" step="0.01">
+
+        <div class="form-row" style="display:flex;gap:16px;">
+          <div class="form-group" style="flex:1;">
+            <label for="amount">合同金额（元）</label>
+            <input type="number" id="amount" name="amount" min="0" step="0.01">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="expires_at">到期日期</label>
+            <input type="date" id="expires_at" name="expires_at">
+          </div>
         </div>
+
         <div class="form-group">
-          <label for="expires_at">到期日期</label>
-          <input type="date" id="expires_at" name="expires_at">
+          <label for="content_text">合同正文内容</label>
+          <textarea id="content_text" name="content_text" rows="12"
+            placeholder="在此填写合同正文条款..."></textarea>
         </div>
-        <div class="form-group">
-          <label for="content">合同内容(JSON格式)</label>
-          <textarea id="content" name="content"></textarea>
-        </div>
+
         <div id="error-message" class="error-message" style="display:none;"></div>
         <button type="submit" class="btn-primary">保存</button>
         <a href="/pages/handler/contracts.html" class="btn-secondary" style="display:inline-block;margin-left:8px;">返回</a>
@@ -68,41 +81,36 @@
         document.querySelector('.card').innerHTML = '<div class="error-message">仅草稿或已驳回状态可编辑</div>';
         return;
       }
+      const cj = c.content_json || {};
       document.getElementById('title').value = c.title;
+      document.getElementById('party_a').value = cj['甲方'] || '本公司';
       document.getElementById('counterparty').value = c.counterparty;
       document.getElementById('amount').value = c.amount || '';
       if (c.expires_at) {
-        const date = c.expires_at.split('T')[0];
-        document.getElementById('expires_at').value = date;
+        document.getElementById('expires_at').value = c.expires_at.split('T')[0];
       }
-      document.getElementById('content').value = c.content_json ? JSON.stringify(c.content_json, null, 2) : '';
+      document.getElementById('content_text').value = cj['合同正文'] || '';
     }
 
     document.getElementById('contract-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
       const formData = new FormData(form);
-      const contentStr = formData.get('content');
-      let contentJson = null;
-      if (contentStr.trim()) {
-        try {
-          contentJson = JSON.parse(contentStr);
-        } catch {
-          document.getElementById('error-message').textContent = '合同内容JSON格式错误';
-          document.getElementById('error-message').style.display = 'block';
-          return;
-        }
-      }
+
       const body = {};
       const title = formData.get('title');
       const counterparty = formData.get('counterparty');
+      const party_a = formData.get('party_a');
       const amount = formData.get('amount');
       const expires_at = formData.get('expires_at');
+      const content_text = formData.get('content_text');
+
       if (title) body.title = title;
       if (counterparty) body.counterparty = counterparty;
+      if (party_a) body.party_a = party_a;
       if (amount) body.amount = parseFloat(amount);
       if (expires_at) body.expires_at = expires_at;
-      if (contentJson) body.content_json = contentJson;
+      if (content_text !== null) body.content_text = content_text;
 
       const result = await apiRequest(`/api/v1/contracts/${contractId}`, {
         method: 'PUT',

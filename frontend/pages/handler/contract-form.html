@@ -14,32 +14,48 @@
       <form id="contract-form">
         <div class="form-group">
           <label for="title">合同标题 *</label>
-          <input type="text" id="title" name="title" required maxlength="200">
+          <input type="text" id="title" name="title" required maxlength="200" placeholder="例如：2026年度服务器采购合同">
         </div>
+
+        <div class="form-row" style="display:flex;gap:16px;">
+          <div class="form-group" style="flex:1;">
+            <label for="party_a">甲方 *</label>
+            <input type="text" id="party_a" name="party_a" value="本公司" maxlength="200">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="counterparty">乙方（对方名称）*</label>
+            <input type="text" id="counterparty" name="counterparty" required maxlength="200" placeholder="对方公司名称">
+          </div>
+        </div>
+
+        <div class="form-row" style="display:flex;gap:16px;">
+          <div class="form-group" style="flex:1;">
+            <label for="amount">合同金额（元）</label>
+            <input type="number" id="amount" name="amount" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="expires_at">到期日期</label>
+            <input type="date" id="expires_at" name="expires_at">
+          </div>
+        </div>
+
+        <div class="form-row" style="display:flex;gap:16px;">
+          <div class="form-group" style="flex:1;">
+            <label for="approver_1_id">一级审批人（主管）*</label>
+            <select id="approver_1_id" name="approver_1_id" required></select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="approver_2_id">二级审批人（法务）*</label>
+            <select id="approver_2_id" name="approver_2_id" required></select>
+          </div>
+        </div>
+
         <div class="form-group">
-          <label for="counterparty">对方名称 *</label>
-          <input type="text" id="counterparty" name="counterparty" required maxlength="200">
+          <label for="content_text">合同正文内容</label>
+          <textarea id="content_text" name="content_text" rows="12"
+            placeholder="在此填写合同正文条款，例如：&#10;&#10;第一条 合同标的&#10;乙方向甲方提供 XX 产品/服务...&#10;&#10;第二条 交付期限&#10;...&#10;&#10;第三条 付款方式&#10;..."></textarea>
         </div>
-        <div class="form-group">
-          <label for="amount">金额</label>
-          <input type="number" id="amount" name="amount" min="0" step="0.01">
-        </div>
-        <div class="form-group">
-          <label for="expires_at">到期日期</label>
-          <input type="date" id="expires_at" name="expires_at">
-        </div>
-        <div class="form-group">
-          <label for="approver_1_id">一级审批人(主管) *</label>
-          <select id="approver_1_id" name="approver_1_id" required></select>
-        </div>
-        <div class="form-group">
-          <label for="approver_2_id">二级审批人(法务) *</label>
-          <select id="approver_2_id" name="approver_2_id" required></select>
-        </div>
-        <div class="form-group">
-          <label for="content">合同内容(JSON格式)</label>
-          <textarea id="content" name="content" placeholder='{"甲方": "我司", "乙方": "对方公司"}'></textarea>
-        </div>
+
         <div id="error-message" class="error-message" style="display:none;"></div>
         <button type="submit" class="btn-primary">创建合同</button>
         <a href="/pages/handler/contracts.html" class="btn-secondary" style="display:inline-block;margin-left:8px;">返回</a>
@@ -64,21 +80,23 @@
     }
 
     async function loadApprovers() {
-      const result = await apiRequest('/api/v1/admin/users');
+      const result = await apiRequest('/api/v1/auth/approvers');
       if (result.error) {
         document.getElementById('error-message').textContent = '无法加载审批人列表';
         document.getElementById('error-message').style.display = 'block';
         return;
       }
-      const approvers = (result.users || []).filter(u => u.role === 'approver' && u.is_active);
+      const approvers = result.approvers || [];
       const select1 = document.getElementById('approver_1_id');
       const select2 = document.getElementById('approver_2_id');
+      select1.innerHTML = '<option value="">-- 请选择 --</option>';
+      select2.innerHTML = '<option value="">-- 请选择 --</option>';
       approvers.forEach(a => {
-        select1.innerHTML += `<option value="${a.id}">${a.username}</option>`;
-        select2.innerHTML += `<option value="${a.id}">${a.username}</option>`;
+        select1.innerHTML += `<option value="${a.id}">${escapeHtml(a.username)}</option>`;
+        select2.innerHTML += `<option value="${a.id}">${escapeHtml(a.username)}</option>`;
       });
       if (!approvers.length) {
-        document.getElementById('error-message').textContent = '系统中没有审批人，请先创建审批人账号';
+        document.getElementById('error-message').textContent = '系统中没有审批人，请联系管理员创建审批人账号';
         document.getElementById('error-message').style.display = 'block';
       }
     }
@@ -87,27 +105,26 @@
       e.preventDefault();
       const form = e.target;
       const formData = new FormData(form);
-      const contentStr = formData.get('content');
-      let contentJson = {};
-      if (contentStr.trim()) {
-        try {
-          contentJson = JSON.parse(contentStr);
-        } catch {
-          document.getElementById('error-message').textContent = '合同内容JSON格式错误';
-          document.getElementById('error-message').style.display = 'block';
-          return;
-        }
-      }
+
       const body = {
         title: formData.get('title'),
         counterparty: formData.get('counterparty'),
+        party_a: formData.get('party_a') || '本公司',
+        party_b: formData.get('counterparty'),
         amount: formData.get('amount') ? parseFloat(formData.get('amount')) : null,
         expires_at: formData.get('expires_at') || null,
         approver_1_id: formData.get('approver_1_id'),
         approver_2_id: formData.get('approver_2_id'),
-        content_json: contentJson,
+        content_text: formData.get('content_text') || '',
       };
-      const result = await apiRequest('/api/v1/contracts', {
+
+      if (!body.approver_1_id || !body.approver_2_id) {
+        document.getElementById('error-message').textContent = '请选择两级审批人';
+        document.getElementById('error-message').style.display = 'block';
+        return;
+      }
+
+      const result = await apiRequest('/api/v1/contracts/', {
         method: 'POST',
         body: JSON.stringify(body),
       });
@@ -119,6 +136,12 @@
       alert('合同创建成功');
       window.location.href = `/pages/handler/contract-detail.html?id=${result.contract.id}`;
     });
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
 
     init();
   </script>

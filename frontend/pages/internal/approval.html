@@ -129,6 +129,7 @@
           <p><strong>状态:</strong> <span class="tag tag-${c.status}">${formatStatus(c.status)}</span></p>
           <p><strong>创建时间:</strong> ${c.created_at}</p>
         </div>
+        ${renderContent(c)}
         <div class="card">
           <h3>审批进度</h3>
           ${approvalProgress}
@@ -177,6 +178,25 @@
           setTimeout(() => { detailEl.style.display = 'none'; listEl.style.display = 'block'; loadList(); }, 1000);
         });
       }
+    }
+
+    function renderContent(c) {
+      const cj = c.content_json;
+      if (!cj || !Object.keys(cj).length) return '';
+      let html = '<div class="card"><h3>合同内容</h3><table>';
+      const metaKeys = ['甲方', '乙方', '合同金额', '到期日期'];
+      for (const k of metaKeys) {
+        if (cj[k]) {
+          html += `<tr><td style="width:100px;"><strong>${escapeHtml(k)}</strong></td><td>${escapeHtml(String(cj[k]))}</td></tr>`;
+        }
+      }
+      html += '</table>';
+      if (cj['合同正文']) {
+        html += `<h4 style="margin-top:12px;">合同正文</h4>
+          <div style="background:#f9f9f9;padding:16px;border-radius:4px;white-space:pre-wrap;line-height:1.8;">${escapeHtml(cj['合同正文'])}</div>`;
+      }
+      html += '</div>';
+      return html;
     }
 
     function escapeHtml(str) {
