@@ -18,6 +18,13 @@ def get_message_svc(store=Depends(get_store)) -> MessageService:
 
 # ── 审批 ──
 
+@router.get("/api/v1/approvals/pending")
+def list_pending_approvals(user: dict = Depends(get_current_user),
+                           svc=Depends(get_approval_svc)):
+    contracts = svc.get_pending_for_approver(user["id"])
+    return {"contracts": contracts}
+
+
 @router.get("/api/v1/contracts/{contract_id}/approvals")
 def get_approvals(contract_id: str, user: dict = Depends(get_current_user),
                   svc=Depends(get_approval_svc)):

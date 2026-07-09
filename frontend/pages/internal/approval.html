@@ -25,19 +25,14 @@
     const detailEl = document.getElementById('approval-detail');
 
     async function loadList() {
-      // 获取待审批合同列表
-      const result = await apiRequest('/api/v1/messages');
-      // 通过查询 message service 间接获得 — 直接调用审批相关接口
-      // 使用 contracts 搜索接口，查询 review 状态的合同
       listEl.innerHTML = '<div class="empty-state">加载中...</div>';
 
-      // 获取所有 review 状态的合同（待审批）
-      const contractsResult = await apiRequest('/api/v1/contracts?status=review');
-      if (contractsResult.error) {
-        listEl.innerHTML = '<div class="empty-state">加载失败：' + contractsResult.error.message + '</div>';
+      const result = await apiRequest('/api/v1/approvals/pending');
+      if (result.error) {
+        listEl.innerHTML = '<div class="empty-state">加载失败：' + result.error.message + '</div>';
         return;
       }
-      const contracts = contractsResult.contracts || [];
+      const contracts = result.contracts || [];
       if (contracts.length === 0) {
         listEl.innerHTML = '<div class="empty-state">📋 暂无待审批合同</div>';
         return;
@@ -118,7 +113,18 @@
       } else if (currentLevel) {
         actionHtml = '<div class="card" style="margin-top:16px;text-align:center;color:#999;">⏳ 等待上一级审批完成</div>';
       } else {
-        actionHtml = '<div class="card" style="margin-top:16px;text-align:center;color:#999;">该合同已完成审批流程</div>';
+        const statusMessages = {
+          draft: '📝 该合同尚未提交审批',
+          approved: '✅ 该合同已通过审批，等待签订',
+          rejected: '❌ 该合同已被驳回',
+          signed: '✍️ 该合同已完成审批，已签订',
+          active: '📋 该合同已完成审批，正在履行中',
+          expired: '📋 该合同已完成审批，已到期',
+          renewed: '📋 该合同已完成审批，已续签',
+          archived: '📋 该合同已完成审批，已归档',
+        };
+        const msg = statusMessages[c.status] || '该合同已完成审批流程';
+        actionHtml = `<div class="card" style="margin-top:16px;text-align:center;color:#999;">${msg}</div>`;
       }
 
       detailEl.innerHTML = `
