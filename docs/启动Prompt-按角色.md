@@ -11,7 +11,10 @@
 3. 在 VS Code 终端中执行：
    ```
    cd backend
+   python -m venv .venv
+   source .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
    pip install -e ".[dev]"
+   cp .env.example .env            # 创建本地环境配置（.env 不会被提交）
    ```
 4. 确保参考项目 `enterticketsystem/` 也在本地，让 Claude Code 能读到它的代码风格
 5. 打开 Claude Code，粘贴你对应角色的 Prompt
@@ -348,7 +351,8 @@ app.include_router(admin.router)
 ### 2. 验证启动
 ```bash
 cd backend
-uvicorn app.main:app --reload
+source .venv/Scripts/activate
+python -m uvicorn app.main:app --reload
 ```
 访问 http://localhost:8000，确认能跳转登录页，无 import 错误。
 

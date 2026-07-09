@@ -13,7 +13,7 @@
 3. Repository name：`contract-system`
 4. **不要勾选** "Add a README file" 和 "Add .gitignore"（项目里已经有了）
 5. 点击 `Create repository`
-6. 记下仓库地址：`https://github.com/你的用户名/contract-system.git`
+6. 记下仓库地址：`https://github.com/Suj-12138/contract-system.git`
 
 ### 2. 本地项目推送到 GitHub
 
@@ -29,8 +29,8 @@ git init
 git add -A
 git commit -m "init: 项目基线文档 — 需求分析 + 概要设计 + 实施计划"
 
-# 关联 GitHub 仓库（把下面地址换成你的）
-git remote add origin https://github.com/你的用户名/contract-system.git
+# 关联 GitHub 仓库
+git remote add origin https://github.com/Suj-12138/contract-system.git
 
 # 推送到 GitHub
 git branch -M main
@@ -60,7 +60,7 @@ git push -u origin feature/auth-infra
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/你的用户名/contract-system.git
+git clone https://github.com/Suj-12138/contract-system.git
 cd contract-system
 ```
 
@@ -69,7 +69,29 @@ cd contract-system
 ```bash
 git fetch origin
 git checkout feature/auth-infra     # 先看看骨架有没有问题
-cd backend && pip install -e ".[dev]"  # 安装依赖
+cd backend
+python -m venv .venv
+source .venv/Scripts/activate       # Linux/macOS: source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+然后创建 `.env` 配置文件（`.gitignore` 已排除，每人自己创建）：
+
+```bash
+cp .env.example .env
+```
+
+或手动创建 `backend/.env`，内容：
+```
+APP_NAME=企业合同管理系统
+APP_ENV=local
+SESSION_COOKIE_NAME=contract_session
+SESSION_COOKIE_SECURE=false
+SESSION_TTL_HOURS=8
+EXPIRY_WARN_DAYS=30
+INITIAL_ADMIN_USERNAME=admin
+INITIAL_ADMIN_EMAIL=admin@contract-system.local
+INITIAL_ADMIN_PASSWORD=admin123456
 ```
 
 ### 3. 创建自己的开发分支
@@ -151,7 +173,8 @@ git merge feature/tests-docs
 ```bash
 # 每次合并完，启动服务器看看能不能跑
 cd backend
-uvicorn app.main:app --reload
+source .venv/Scripts/activate
+python -m uvicorn app.main:app --reload
 # 访问 http://localhost:8000 ，确认没有报错
 ```
 

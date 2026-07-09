@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据看板 - 企业合同管理系统</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <header id="nav-container"></header>
+  <main class="main-content">
+    <h2>数据看板</h2>
+    <div class="card">
+      <p>👋 欢迎，管理员！系统已正常运行。</p>
+      <p>数据看板功能将在 P4 阶段完成。</p>
+    </div>
+  </main>
+  <script type="module">
+    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+    const user = await checkSession();
+    if (user) renderNav(user);
+  </script>
+</body>
+</html>
