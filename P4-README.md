@@ -5,7 +5,7 @@
 - **远程**：`origin/feature/templates-admin`
 - **负责模块**：合同模板 CRUD + 管理员用户管理 + 数据看板
 - **开始日期**：2026-07-08
-- **当前进度**：P4-DEV-03 / 10 完成
+- **当前进度**：P4-DEV-04 / 10 完成
 
 ---
 
@@ -37,7 +37,7 @@ feature/auth-infra                       ← P1 分支（参考 API）
 | 1 | `backend/app/schemas/templates.py` | 模板 Pydantic Schema | ✅ DEV-01 完成 |
 | 2 | `backend/app/services/template_service.py` | 模板业务逻辑 | ✅ DEV-02 完成 |
 | 3 | `backend/app/services/admin_service.py` | 管理员业务逻辑 | ✅ DEV-03 完成 |
-| 4 | `backend/app/api/routes/templates.py` | 模板路由（4 端点） | 待开发 |
+| 4 | `backend/app/api/routes/templates.py` | 模板路由（4 端点） | ✅ DEV-04 完成 |
 | 5 | `backend/app/api/routes/admin.py` | 管理员路由（4 端点） | 待开发 |
 | 6 | `frontend/assets/js/admin.js` | 管理页面 JS 模块 | 待开发 |
 | 7 | `frontend/pages/admin/stats.html` | 数据看板页面 | 待开发 |
@@ -83,7 +83,7 @@ feature/auth-infra                       ← P1 分支（参考 API）
   P4-DEV-03 ✅ 管理员 Service
 
 阶段 B — 后端 Route
-  P4-DEV-04 ⬜ 模板路由
+  P4-DEV-04 ✅ 模板路由
   P4-DEV-05 ⬜ 管理员路由
 
 阶段 C — 前端
