@@ -2,12 +2,23 @@
 
 import os
 from functools import lru_cache
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# 项目根目录 = backend/（即 app/ 的父目录）
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings:
     APP_NAME: str = os.getenv("APP_NAME", "企业合同管理系统")
     APP_ENV: str = os.getenv("APP_ENV", "local")
-    DATA_FILE: str = os.getenv("CONTRACT_DATA_FILE", "backend/data/store.json")
+    DATA_FILE: str = os.getenv(
+        "CONTRACT_DATA_FILE",
+        str(_BACKEND_DIR / "data" / "store.json"),
+    )
     SESSION_COOKIE_NAME: str = os.getenv("SESSION_COOKIE_NAME", "contract_session")
     SESSION_COOKIE_SECURE: bool = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
     SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "8"))

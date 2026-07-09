@@ -1,4 +1,5 @@
 """FastAPI 应用入口."""
+import mimetypes
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -10,6 +11,10 @@ from app.api.routes import auth
 from app.bootstrap import bootstrap_admin
 from app.config import get_settings
 from app.storage.json_store import JsonFileStore
+
+# 确保 JS/CSS 文件的 MIME 类型正确（Windows 下 mimetypes 可能识别错误）
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/css", ".css")
 
 settings = get_settings()
 
