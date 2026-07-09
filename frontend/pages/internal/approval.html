@@ -8,16 +8,192 @@
 </head>
 <body>
   <header id="nav-container"></header>
-  <main class="main-content">
-    <h2>待审批</h2>
-    <div class="card">
-      <p>📋 审批功能将在 P3 阶段完成。</p>
-    </div>
+  <main class="container">
+    <h2>待审批合同</h2>
+    <div id="approval-list"></div>
+    <div id="approval-detail" style="display:none;"></div>
   </main>
   <script type="module">
-    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+    import { apiRequest } from '/assets/js/api-client.js';
+    import { checkSession, renderNav, formatStatus } from '/assets/js/internal.js';
+
     const user = await checkSession();
-    if (user) renderNav(user);
+    if (!user) throw new Error('未登录');
+    renderNav(user);
+
+    const listEl = document.getElementById('approval-list');
+    const detailEl = document.getElementById('approval-detail');
+
+    async function loadList() {
+      // 获取待审批合同列表
+      const result = await apiRequest('/api/v1/messages');
+      // 通过查询 message service 间接获得 — 直接调用审批相关接口
+      // 使用 contracts 搜索接口，查询 review 状态的合同
+      listEl.innerHTML = '<div class="empty-state">加载中...</div>';
+
+      // 获取所有 review 状态的合同（待审批）
+      const contractsResult = await apiRequest('/api/v1/contracts?status=review');
+      if (contractsResult.error) {
+        listEl.innerHTML = '<div class="empty-state">加载失败：' + contractsResult.error.message + '</div>';
+        return;
+      }
+      const contracts = contractsResult.contracts || [];
+      if (contracts.length === 0) {
+        listEl.innerHTML = '<div class="empty-state">📋 暂无待审批合同</div>';
+        return;
+      }
+
+      let html = '<div class="card"><table><thead><tr><th>合同标题</th><th>对手方</th><th>金额</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+      for (const c of contracts) {
+        html += `<tr>
+          <td><a href="#" class="contract-link" data-id="${c.id}">${escapeHtml(c.title)}</a></td>
+          <td>${escapeHtml(c.counterparty)}</td>
+          <td>${c.amount ? '¥' + c.amount.toLocaleString() : '-'}</td>
+          <td><span class="tag tag-review">待审批</span></td>
+          <td>
+            <button class="btn-primary btn-sm view-detail" data-id="${c.id}">查看详情</button>
+          </td>
+        </tr>`;
+      }
+      html += '</tbody></table></div>';
+      listEl.innerHTML = html;
+
+      // 绑定事件
+      listEl.querySelectorAll('.view-detail').forEach(btn => {
+        btn.addEventListener('click', () => showDetail(btn.dataset.id));
+      });
+      listEl.querySelectorAll('.contract-link').forEach(link => {
+        link.addEventListener('click', (e) => { e.preventDefault(); showDetail(link.dataset.id); });
+      });
+    }
+
+    async function showDetail(contractId) {
+      // 获取合同详情和审批记录
+      const [contractRes, approvalRes] = await Promise.all([
+        apiRequest(`/api/v1/contracts/${contractId}`),
+        apiRequest(`/api/v1/contracts/${contractId}/approvals`),
+      ]);
+
+      if (contractRes.error) {
+        alert('加载合同详情失败：' + contractRes.error.message);
+        return;
+      }
+
+      const c = contractRes.contract || contractRes;
+      const approvals = approvalRes.approvals || [];
+      const currentLevel = approvals.find(a => a.decision === 'pending');
+      const isMyTurn = currentLevel && currentLevel.approver_id === user.id;
+
+      let approvalProgress = '<div class="approval-progress">';
+      for (const a of approvals) {
+        let cls = a.decision === 'approved' ? 'approved' : a.decision === 'rejected' ? 'rejected' : 'pending';
+        let label = `第${a.level}级审批`;
+        if (a.decision === 'approved') label += ' ✅';
+        else if (a.decision === 'rejected') label += ' ❌';
+        else label += ' ⏳';
+        approvalProgress += `<div class="approval-step ${cls}">
+          <div><strong>${label}</strong></div>
+          <div>审批人: ${escapeHtml(a.approver_id)}</div>
+          ${a.comment ? `<div>意见: ${escapeHtml(a.comment)}</div>` : ''}
+          ${a.decided_at ? `<div style="font-size:12px;color:#999;">${a.decided_at}</div>` : ''}
+        </div>`;
+      }
+      approvalProgress += '</div>';
+
+      let actionHtml = '';
+      if (isMyTurn) {
+        actionHtml = `
+          <div class="card" style="margin-top:16px;">
+            <h3>审批操作</h3>
+            <div class="form-group">
+              <label for="approval-comment">审批意见</label>
+              <textarea id="approval-comment" placeholder="可选，输入审批意见..."></textarea>
+            </div>
+            <div style="display:flex;gap:12px;">
+              <button id="btn-approve" class="btn-primary" style="flex:1;background:#52c41a;">✅ 通过</button>
+              <button id="btn-reject" class="btn-danger" style="flex:1;">❌ 驳回</button>
+            </div>
+            <div id="action-message" style="margin-top:8px;"></div>
+          </div>`;
+      } else if (currentLevel) {
+        actionHtml = '<div class="card" style="margin-top:16px;text-align:center;color:#999;">⏳ 等待上一级审批完成</div>';
+      } else {
+        actionHtml = '<div class="card" style="margin-top:16px;text-align:center;color:#999;">该合同已完成审批流程</div>';
+      }
+
+      detailEl.innerHTML = `
+        <div class="card">
+          <h3>${escapeHtml(c.title)}</h3>
+          <p><strong>对手方:</strong> ${escapeHtml(c.counterparty)}</p>
+          <p><strong>金额:</strong> ${c.amount ? '¥' + c.amount.toLocaleString() : '-'}</p>
+          <p><strong>状态:</strong> <span class="tag tag-${c.status}">${formatStatus(c.status)}</span></p>
+          <p><strong>创建时间:</strong> ${c.created_at}</p>
+        </div>
+        <div class="card">
+          <h3>审批进度</h3>
+          ${approvalProgress}
+        </div>
+        ${actionHtml}
+      `;
+      detailEl.style.display = 'block';
+      listEl.style.display = 'none';
+
+      // 绑定审批按钮
+      const btnApprove = document.getElementById('btn-approve');
+      const btnReject = document.getElementById('btn-reject');
+      const msgEl = document.getElementById('action-message');
+
+      if (btnApprove) {
+        btnApprove.addEventListener('click', async () => {
+          const comment = document.getElementById('approval-comment').value;
+          const result = await apiRequest(`/api/v1/contracts/${contractId}/approve`, {
+            method: 'POST',
+            body: JSON.stringify({ comment }),
+          });
+          if (result.error) {
+            msgEl.innerHTML = `<div class="error-message">${result.error.message}</div>`;
+            return;
+          }
+          msgEl.innerHTML = '<div class="success-message">审批通过！</div>';
+          setTimeout(() => { detailEl.style.display = 'none'; listEl.style.display = 'block'; loadList(); }, 1000);
+        });
+      }
+      if (btnReject) {
+        btnReject.addEventListener('click', async () => {
+          const comment = document.getElementById('approval-comment').value;
+          if (!comment.trim()) {
+            msgEl.innerHTML = '<div class="error-message">驳回时必须填写审批意见</div>';
+            return;
+          }
+          const result = await apiRequest(`/api/v1/contracts/${contractId}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ comment }),
+          });
+          if (result.error) {
+            msgEl.innerHTML = `<div class="error-message">${result.error.message}</div>`;
+            return;
+          }
+          msgEl.innerHTML = '<div class="success-message">已驳回</div>';
+          setTimeout(() => { detailEl.style.display = 'none'; listEl.style.display = 'block'; loadList(); }, 1000);
+        });
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // 返回列表按钮
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'back-to-list') {
+        detailEl.style.display = 'none';
+        listEl.style.display = 'block';
+      }
+    });
+
+    loadList();
   </script>
 </body>
 </html>

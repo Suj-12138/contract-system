@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>消息中心 - 企业合同管理系统</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <style>
+    .tab-bar { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; }
+    .tab-item { padding: 10px 24px; cursor: pointer; border: none; background: none; font-size: 14px; color: #666; }
+    .tab-item.active { color: #1890ff; border-bottom: 2px solid #1890ff; margin-bottom: -2px; font-weight: 500; }
+    .message-item { padding: 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; }
+    .message-item:hover { background: #fafafa; }
+    .message-item.unread { background: #f0f7ff; }
+    .message-item .msg-title { font-weight: 500; margin-bottom: 4px; }
+    .message-item .msg-body { color: #666; font-size: 13px; margin-bottom: 4px; }
+    .message-item .msg-time { color: #999; font-size: 12px; }
+    .unread-badge { background: #e74c3c; color: #fff; border-radius: 10px; padding: 2px 8px; font-size: 12px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <header id="nav-container"></header>
+  <main class="container">
+    <h2>消息中心</h2>
+    <div class="tab-bar">
+      <button class="tab-item active" data-tab="unread">未读消息<span id="unread-badge" class="unread-badge" style="display:none;">0</span></button>
+      <button class="tab-item" data-tab="read">已读消息</button>
+    </div>
+    <div class="card">
+      <div id="message-list"></div>
+    </div>
+  </main>
+  <script type="module">
+    import { apiRequest } from '/assets/js/api-client.js';
+    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+
+    const user = await checkSession();
+    if (!user) throw new Error('未登录');
+    renderNav(user);
+
+    const listEl = document.getElementById('message-list');
+    const unreadBadge = document.getElementById('unread-badge');
+    let currentTab = 'unread';
+
+    async function loadMessages(isRead) {
+      listEl.innerHTML = '<div class="empty-state">加载中...</div>';
+      const result = await apiRequest(`/api/v1/messages?is_read=${isRead}`);
+      if (result.error) {
+        listEl.innerHTML = '<div class="empty-state">加载失败：' + result.error.message + '</div>';
+        return;
+      }
+      const messages = result.messages || [];
+      if (messages.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">${isRead ? '📭 暂无已读消息' : '📬 暂无未读消息'}</div>`;
+        return;
+      }
+
+      listEl.innerHTML = messages.map(m => `
+        <div class="message-item ${m.is_read ? '' : 'unread'}" data-id="${m.id}" data-contract="${m.contract_id || ''}">
+          <div style="flex:1;">
+            <div class="msg-title">${escapeHtml(m.title)}</div>
+            <div class="msg-body">${escapeHtml(m.body)}</div>
+            <div class="msg-time">${m.created_at}</div>
+          </div>
+          ${!m.is_read ? '<span style="color:#1890ff;font-size:12px;">● 未读</span>' : ''}
+        </div>
+      `).join('');
+
+      // 点击消息：标记已读 + 跳转
+      listEl.querySelectorAll('.message-item').forEach(item => {
+        item.addEventListener('click', async () => {
+          const msgId = item.dataset.id;
+          const contractId = item.dataset.contract;
+          await apiRequest(`/api/v1/messages/${msgId}/read`, { method: 'PATCH' });
+          // 如果有关联合同，跳转到审批页查看
+          if (contractId) {
+            window.location.href = '/pages/internal/approval.html';
+          }
+          loadMessages(currentTab === 'unread' ? false : true);
+        });
+      });
+    }
+
+    // Tab 切换
+    document.querySelectorAll('.tab-item').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentTab = tab.dataset.tab;
+        loadMessages(currentTab === 'unread' ? false : true);
+      });
+    });
+
+    // 加载未读数量
+    async function loadUnreadCount() {
+      const result = await apiRequest('/api/v1/messages/unread-count');
+      if (!result.error && result.count > 0) {
+        unreadBadge.textContent = result.count;
+        unreadBadge.style.display = 'inline';
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    loadMessages(false);
+    loadUnreadCount();
+  </script>
+</body>
+</html>
