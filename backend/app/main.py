@@ -1,5 +1,6 @@
 """FastAPI 应用入口."""
 import mimetypes
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -18,7 +19,15 @@ mimetypes.add_type("text/css", ".css")
 
 settings = get_settings()
 
-app = FastAPI(title=settings.APP_NAME, version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    store = JsonFileStore(settings.DATA_FILE)
+    bootstrap_admin(store)
+    yield
+
+
+app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,12 +49,6 @@ frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"
 if frontend_dir.exists():
     app.mount("/pages", StaticFiles(directory=str(frontend_dir / "pages")), name="pages")
     app.mount("/assets", StaticFiles(directory=str(frontend_dir / "assets")), name="assets")
-
-
-@app.on_event("startup")
-def on_startup():
-    store = JsonFileStore(settings.DATA_FILE)
-    bootstrap_admin(store)
 
 
 @app.get("/")
