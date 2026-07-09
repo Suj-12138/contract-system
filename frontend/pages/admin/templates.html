@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模板管理 - 企业合同管理系统</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <header id="nav-container"></header>
+  <main class="container">
+    <h2>模板管理</h2>
+
+    <!-- 模板表单（创建/编辑复用） -->
+    <div class="card" id="template-form-card">
+      <h3 id="form-title">新建模板</h3>
+      <form id="template-form">
+        <input type="hidden" id="edit-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tpl-name">模板名称</label>
+            <input type="text" id="tpl-name" required minlength="1" maxlength="100" placeholder="如：采购合同模板">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="tpl-desc">描述</label>
+          <textarea id="tpl-desc" rows="2" placeholder="简要描述模板用途"></textarea>
+        </div>
+
+        <!-- 动态字段编辑器 -->
+        <fieldset class="field-editor">
+          <legend>模板字段 <button type="button" class="btn-sm btn-primary" id="add-field-btn">+ 添加字段</button></legend>
+          <div id="fields-container"></div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="submit-btn">创建模板</button>
+          <button type="button" class="btn-secondary" id="cancel-edit-btn" style="display:none">取消编辑</button>
+        </div>
+        <div id="form-message"></div>
+      </form>
+    </div>
+
+    <!-- 模板列表 -->
+    <div class="card">
+      <h3>模板列表</h3>
+      <div id="template-list"></div>
+    </div>
+  </main>
+  <script type="module">
+    import { checkSession, renderNav } from '/assets/js/session-ui.js';
+    import { fetchTemplates, renderTemplateList, saveTemplate, toggleTemplate } from '/assets/js/admin.js';
+
+    const user = await checkSession();
+    if (!user) window.location.href = '/pages/public/login.html';
+    renderNav(user);
+
+    const FIELD_TYPES = [
+      { value: 'text', label: '文本' },
+      { value: 'number', label: '数字' },
+      { value: 'date', label: '日期' },
+      { value: 'textarea', label: '长文本' },
+    ];
+
+    const form = document.getElementById('template-form');
+    const listContainer = document.getElementById('template-list');
+    const msgEl = document.getElementById('form-message');
+    const fieldsContainer = document.getElementById('fields-container');
+    const editIdInput = document.getElementById('edit-id');
+    const formTitle = document.getElementById('form-title');
+    const submitBtn = document.getElementById('submit-btn');
+    const cancelBtn = document.getElementById('cancel-edit-btn');
+
+    function createFieldRow(field) {
+      const div = document.createElement('div');
+      div.className = 'field-row';
+      div.innerHTML = `
+        <input type="text" class="field-label-input" placeholder="字段名" value="${escapeAttr(field.label ?? '')}" required>
+        <select class="field-type-select">
+          ${FIELD_TYPES.map(ft => `<option value="${ft.value}" ${field.type === ft.value ? 'selected' : ''}>${ft.label}</option>`).join('')}
+        </select>
+        <label class="field-required-label"><input type="checkbox" class="field-required-check" ${field.required ? 'checked' : ''}> 必填</label>
+        <button type="button" class="btn-sm btn-danger remove-field-btn">删除</button>
+      `;
+      return div;
+    }
+
+    function getFieldsData() {
+      const rows = fieldsContainer.querySelectorAll('.field-row');
+      return Array.from(rows).map(row => ({
+        label: row.querySelector('.field-label-input').value.trim(),
+        type: row.querySelector('.field-type-select').value,
+        required: row.querySelector('.field-required-check').checked,
+      }));
+    }
+
+    document.getElementById('add-field-btn').addEventListener('click', () => {
+      fieldsContainer.appendChild(createFieldRow({ label: '', type: 'text', required: false }));
+    });
+
+    fieldsContainer.addEventListener('click', (e) => {
+      if (e.target.classList.contains('remove-field-btn')) {
+        e.target.closest('.field-row').remove();
+      }
+    });
+
+    function showMessage(msg, isError) {
+      msgEl.className = isError ? 'error-message' : 'success-message';
+      msgEl.textContent = msg;
+      if (!isError) setTimeout(() => { msgEl.textContent = ''; msgEl.className = ''; }, 3000);
+    }
+
+    function resetForm() {
+      form.reset();
+      editIdInput.value = '';
+      formTitle.textContent = '新建模板';
+      submitBtn.textContent = '创建模板';
+      cancelBtn.style.display = 'none';
+      fieldsContainer.innerHTML = '';
+    }
+
+    cancelBtn.addEventListener('click', resetForm);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        name: document.getElementById('tpl-name').value.trim(),
+        description: document.getElementById('tpl-desc').value.trim(),
+        fields_json: getFieldsData(),
+      };
+      const tid = editIdInput.value;
+      const result = await saveTemplate(data, tid || undefined);
+      if (result.error) {
+        showMessage(result.error.message ?? '保存失败', true);
+        return;
+      }
+      showMessage(tid ? '模板已更新' : '模板已创建', false);
+      resetForm();
+      await refreshTemplates();
+    });
+
+    // 委托事件：编辑/启停
+    listContainer.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('[data-edit-template]');
+      const toggleBtn = e.target.closest('[data-toggle-template]');
+
+      if (editBtn) {
+        const tid = editBtn.dataset.editTemplate;
+        const templates = await fetchTemplates();
+        const tpl = templates.find(t => t.id === tid);
+        if (!tpl) return;
+
+        editIdInput.value = tpl.id;
+        document.getElementById('tpl-name').value = tpl.name;
+        document.getElementById('tpl-desc').value = tpl.description ?? '';
+        formTitle.textContent = '编辑模板';
+        submitBtn.textContent = '保存修改';
+        cancelBtn.style.display = '';
+
+        fieldsContainer.innerHTML = '';
+        (tpl.fields_json ?? []).forEach(f => {
+          fieldsContainer.appendChild(createFieldRow(f));
+        });
+
+        document.getElementById('template-form-card').scrollIntoView({ behavior: 'smooth' });
+      }
+
+      if (toggleBtn) {
+        const tid = toggleBtn.dataset.toggleTemplate;
+        const isActive = toggleBtn.dataset.active === 'true';
+        const result = await toggleTemplate(tid, !isActive);
+        if (result.error) {
+          alert(result.error.message ?? '操作失败');
+          return;
+        }
+        await refreshTemplates();
+      }
+    });
+
+    async function refreshTemplates() {
+      const templates = await fetchTemplates();
+      if (templates) renderTemplateList(templates);
+    }
+
+    function escapeAttr(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    await refreshTemplates();
+  </script>
+</body>
+</html>
