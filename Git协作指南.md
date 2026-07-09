@@ -69,7 +69,10 @@ cd contract-system
 ```bash
 git fetch origin
 git checkout feature/auth-infra     # 先看看骨架有没有问题
-cd backend && pip install -e ".[dev]"  # 安装依赖
+cd backend
+python -m venv .venv
+source .venv/Scripts/activate       # Linux/macOS: source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
 ### 3. 创建自己的开发分支
@@ -151,7 +154,8 @@ git merge feature/tests-docs
 ```bash
 # 每次合并完，启动服务器看看能不能跑
 cd backend
-uvicorn app.main:app --reload
+source .venv/Scripts/activate
+python -m uvicorn app.main:app --reload
 # 访问 http://localhost:8000 ，确认没有报错
 ```
 

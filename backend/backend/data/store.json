@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "created_at": "2026-07-09T01:37:23Z",
+    "updated_at": "2026-07-09T01:38:22Z"
+  },
+  "users": [
+    {
+      "id": "26c9215b-fdb7-4ee5-ab88-d952d00807b7",
+      "username": "admin",
+      "email": "admin@test.com",
+      "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$9CaXVY5erLD0bh+QsBFKAQ$8QTgqon51PLwJL92SQQ8cWLxAjhTf0k5CSCkd7nMgzI",
+      "role": "admin",
+      "is_active": true,
+      "created_at": "2026-07-09T01:37:23Z"
+    }
+  ],
+  "templates": [],
+  "contracts": [],
+  "approval_records": [],
+  "messages": [],
+  "audit_logs": [],
+  "sessions": [
+    {
+      "user_id": "26c9215b-fdb7-4ee5-ab88-d952d00807b7",
+      "token_hash": "f97c6e08baf7ba1de0da400f0dfbee1cd2c3281df0ede4ccfa1210b129ed233d",
+      "expires_at": "2026-07-09T09:38:22Z",
+      "created_at": "2026-07-09T01:38:22Z"
+    }
+  ]
+}
