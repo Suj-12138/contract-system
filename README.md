@@ -1,115 +1,223 @@
-# 企业合同管理系统
+# P4 — 模板 + 管理员功能（全栈）
 
-合同拟制、两级审批、模板管理、到期提醒、站内消息的单体 Web 应用。
+- **角色**：P4
+- **分支**：`feature/templates-admin`（基于 `main`）
+- **远程**：`origin/feature/templates-admin`
+- **负责模块**：合同模板 CRUD + 管理员用户管理 + 数据看板
+- **开始日期**：2026-07-08
+- **当前进度**：P4-DEV-05 / 10 完成（阶段 A+B 完成，后端全部通过本地验证）
 
-## 功能边界
+---
 
-### 已实现
+## 一、分支信息
 
-- 三类用户（经办人、审批人、管理员）注册/登录/退出
-- 管理员初始化（环境变量配置，首次启动自动创建）
-- 合同全生命周期管理（拟制 → 审批 → 签订 → 履约 → 归档）
-- 固定两级审批（部门主管 → 法务）
-- 合同模板管理（动态字段配置）
-- 站内消息通知（审批结果、到期提醒）
-- 审计日志（全操作记录）
-- 数据看板（合同统计、审批通过率、到期预警）
-- 关键词检索（合同标题 + 对手方）
+```
+main (29372e4)
+  └── feature/templates-admin (2ecd795)  ← P4 当前分支
+        ├── feat: 模板 Schema
+        ├── feat: 模板服务
+        ├── feat: 管理员服务
+        ├── feat: 模板路由
+        └── feat: 管理员路由 + README 重命名
 
-### 不实现（MVP 范围外）
+feature/auth-infra                       ← P1 分支（参考 API）
+```
 
-附件上传、外部通知（邮件/短信）、电子签章集成、高级权限（RBAC）、多条件筛选、批量操作、导出、合同取消/退回/重开、自动关闭、密码找回、多因素认证、验证码、关系型数据库迁移、多实例并发写入。
+| 属性 | 值 |
+|------|-----|
+| 当前 commit | `2ecd795` |
+| 基础 commit | `29372e4`（项目基线文档） |
+| P4 文件数 | 5（schemas 1 + services 2 + routes 2） |
+| 未推送 | 有 |
 
-## 快速开始
+---
 
-### 环境要求
+## 二、模块范围
 
-- Python 3.10+
-- 现代浏览器（Chrome / Edge）
+### 负责文件（10 个，不碰其他人的文件）
 
-### 安装
+| # | 文件 | 内容 | 状态 |
+|---|------|------|------|
+| 1 | `backend/app/schemas/templates.py` | 模板 Pydantic Schema | ✅ DEV-01 完成 |
+| 2 | `backend/app/services/template_service.py` | 模板业务逻辑 | ✅ DEV-02 完成 |
+| 3 | `backend/app/services/admin_service.py` | 管理员业务逻辑 | ✅ DEV-03 完成 |
+| 4 | `backend/app/api/routes/templates.py` | 模板路由（4 端点） | ✅ DEV-04 完成 |
+| 5 | `backend/app/api/routes/admin.py` | 管理员路由（4 端点） | ✅ DEV-05 完成 |
+| 6 | `frontend/assets/js/admin.js` | 管理页面 JS 模块 | 待开发 |
+| 7 | `frontend/pages/admin/stats.html` | 数据看板页面 | 待开发 |
+| 8 | `frontend/pages/admin/users.html` | 用户管理页面 | 待开发 |
+| 9 | `frontend/pages/admin/templates.html` | 模板管理页面 | 待开发 |
+| 10 | `frontend/assets/css/style.css` | 末尾追加管理样式 | 待追加 |
+
+### 不碰的文件
+
+- P1：认证/存储/仓储/公共 JS
+- P2：合同业务
+- P3：审批引擎和消息
+- P5：测试代码
+
+---
+
+## 三、P1 依赖（11 项全部就绪）
+
+| 依赖 | 文件 | 关键 API |
+|------|------|----------|
+| JsonRepository | `app/repositories/json_repository.py` | `list_active_templates()`, `list_all_templates()`, `find_template_by_id()`, `create_template()`, `update_template()` |
+| JsonRepository（用户） | 同上 | `list_users()`, `find_user_by_username()`, `find_user_by_email()`, `find_user_by_id()`, `create_user()`, `update_user()` |
+| JsonRepository（会话） | 同上 | `destroy_sessions_by_user()` |
+| 权限注入 | `app/api/dependencies.py` | `get_current_user()`, `require_admin()` |
+| 错误工具 | `app/api/errors.py` | `error()`, `not_found()`, `conflict()`, `forbidden()` |
+| 密码哈希 | `app/security/passwords.py` | `hash_password()` |
+| 模型工厂 | `app/domain/models.py` | `make_user(store, ...)`, `make_template(store, ...)` |
+| 枚举 | `app/domain/enums.py` | `UserRole.ADMIN/HANDLER/APPROVER` |
+| api-client.js | `frontend/assets/js/api-client.js` | `apiRequest(path, options)` |
+| session-ui.js | `frontend/assets/js/session-ui.js` | `checkSession()`, `renderNav()`（已内置 admin 导航） |
+| style.css | `frontend/assets/css/style.css` | stat-card / table / tag 基础样式 |
+
+> **注意**：P1 代码在 `feature/auth-infra` 分支，尚未合并到 `main`。开发时参考该分支的 API 签名。
+
+---
+
+## 四、开发计划（10 DEV）
+
+```
+阶段 A — 后端 Schema + Service
+  P4-DEV-01 ✅ 模板 Schema
+  P4-DEV-02 ✅ 模板 Service
+  P4-DEV-03 ✅ 管理员 Service
+
+阶段 B — 后端 Route
+  P4-DEV-04 ✅ 模板路由
+  P4-DEV-05 ✅ 管理员路由
+
+阶段 C — 前端
+  P4-DEV-06 ⬜ admin.js
+  P4-DEV-07 ⬜ stats.html
+  P4-DEV-08 ⬜ users.html
+  P4-DEV-09 ⬜ templates.html
+  P4-DEV-10 ⬜ CSS 追加
+```
+
+详细任务说明见 [P4开发任务清单](04-实施计划/P4开发任务清单.md)。
+
+---
+
+## 五、API 端点（P4 实现）
+
+### 模板
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/v1/templates/` | 登录用户 | admin 全部 / 其他人仅启用 |
+| POST | `/api/v1/templates/` | admin | 创建模板 |
+| PUT | `/api/v1/templates/{id}` | admin | 编辑模板 |
+| PATCH | `/api/v1/templates/{id}/status` | admin | 启用/停用 |
+
+### 管理员
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/v1/admin/users` | admin | 用户列表 |
+| POST | `/api/v1/admin/users` | admin | 创建用户 |
+| PATCH | `/api/v1/admin/users/{id}/status` | admin | 启用/禁用 |
+| GET | `/api/v1/admin/stats` | admin | 数据看板 |
+
+---
+
+## 六、本地验证结果（2026-07-09）
+
+| # | 端点 | 验证项 | 结果 |
+|---|------|--------|------|
+| 1 | GET `/api/v1/templates/` | admin 全量列表 | ✅ |
+| 2 | GET `/api/v1/templates/` | handler 仅见启用的 | ✅ |
+| 3 | POST `/api/v1/templates/` | 创建模板 | ✅ |
+| 4 | PUT `/api/v1/templates/{id}` | 编辑模板 | ✅ |
+| 5 | PATCH `/api/v1/templates/{id}/status` | 停用/启用 | ✅ |
+| 6 | PUT `/api/v1/templates/nonexistent` | 404 "模板不存在" | ✅ |
+| 7 | GET `/api/v1/admin/users` | 用户列表 | ✅ |
+| 8 | POST `/api/v1/admin/users` | 创建用户 | ✅ |
+| 9 | POST dup username | 409 "用户名已存在" | ✅ |
+| 10 | POST invalid role | 422 "无效的角色类型" | ✅ |
+| 11 | PATCH `/api/v1/admin/users/{id}/status` | 禁用/启用用户 | ✅ |
+| 12 | PATCH nonexistent user | 404 "用户不存在" | ✅ |
+| 13 | GET `/api/v1/admin/stats` | 数据看板 | ✅ |
+| 14 | 无 cookie | 401 "请先登录" | ✅ |
+| 15 | handler → admin 端点 | 403 "权限不足" | ✅ |
+
+---
+
+## 七、关键架构模式
+
+```python
+# Service 构造（参考 P1 AuthService）
+class TemplateService:
+    def __init__(self, repo: JsonRepository):
+        self._repo = repo
+
+    def create(self, data, admin):
+        template = make_template(
+            self._repo._store,           # store 用于 new_id() / utcnow()
+            data.name,
+            data.description,
+            [f.model_dump() for f in data.fields_json],
+            admin["id"],
+        )
+        return self._repo.create_template(template)
+
+# 路由工厂（参考 P1 auth.py）
+def get_template_service(store=Depends(get_store)) -> TemplateService:
+    return TemplateService(JsonRepository(store))
+
+# main.py 注册（P4 路由已激活）
+app.include_router(templates.router)   # ← P4 ✅
+app.include_router(admin.router)       # ← P4 ✅
+```
+
+---
+
+## 八、开发环境
 
 ```bash
+# 安装依赖（需要先切换到 feature/auth-infra 查看 P1 代码）
 cd backend
 python -m venv .venv
-source .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
+source .venv/Scripts/activate   # Windows
 pip install -e ".[dev]"
-```
 
-### 配置初始管理员
-
-```bash
-# Windows PowerShell
-$env:INITIAL_ADMIN_USERNAME="admin"
-$env:INITIAL_ADMIN_EMAIL="admin@example.com"
-$env:INITIAL_ADMIN_PASSWORD="your-secure-password"
-
-# Linux / macOS
-export INITIAL_ADMIN_USERNAME="admin"
-export INITIAL_ADMIN_EMAIL="admin@example.com"
-export INITIAL_ADMIN_PASSWORD="your-secure-password"
-```
-
-### 启动
-
-```bash
-cd backend
-source .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
-$env:INITIAL_ADMIN_USERNAME="admin"; $env:INITIAL_ADMIN_EMAIL="admin@test.com"; $env:INITIAL_ADMIN_PASSWORD="pass123456"
+# 创建 .env（复制 .env.example）
+# 启动
 python -m uvicorn app.main:app --reload
 ```
 
-访问 http://localhost:8000 ，自动跳转登录页。
+---
 
-### 运行测试
+## 九、Git 工作流
 
 ```bash
-cd backend
-pytest -v
+# 每完成一个 DEV：
+git add <P4文件>
+git commit -m "feat: <描述>"
+git push origin feature/templates-admin
+
+# P1 合并前确认所有代码已推送
 ```
 
-## 技术栈
+**Commit 信息规范：**
+1. `feat: 模板 Schema — TemplateCreate/TemplateUpdate/TemplateStatusUpdate/TemplateResponse`
+2. `feat: 模板服务 — CRUD + 启用/停用`
+3. `feat: 管理员服务 — 用户管理 + 数据看板统计`
+4. `feat: 模板路由 — /api/v1/templates CRUD`
+5. `feat: 管理员路由 — /api/v1/admin 用户管理 + 统计`
+6. `feat: 模板+管理员前端 — stats.html + users.html + templates.html + admin.js`
 
-| 层 | 技术 |
-| --- | --- |
-| 后端 | FastAPI（单进程） |
-| 前端 | 原生 HTML / CSS / JavaScript 多页面应用 |
-| 持久化 | JSON 文件（`backend/data/store.json`），原子写入 + 线程锁 |
-| 认证 | 服务端 Session，HttpOnly / SameSite=Lax Cookie，8 小时 TTL |
-| 密码 | Argon2id 哈希 |
-| 标识 | UUID v4；UTC ISO 8601 时间戳 |
+---
 
-## 架构分层
+## 十、文档索引
 
-```
-API 路由 → 应用服务 → 仓储协议 → JSON 存储适配器
-```
-
-## 合同状态机
-
-```
-draft → review → approved/rejected → signed → active → expired/renewed → archived
-```
-
-## 目录概览
-
-```
-backend/
-  pyproject.toml
-  app/
-    main.py
-    config.py
-    bootstrap.py
-    api/routes/       # auth, contracts, internal, templates, admin
-    services/         # 业务用例编排
-    domain/           # 枚举、状态机、模型工厂
-    repositories/     # 仓储协议 + JSON 适配器
-    schemas/          # Pydantic 请求/响应模型
-    security/         # 密码哈希、会话管理
-    storage/          # JSON 原子读写
-
-frontend/
-  pages/              # public/, handler/, internal/, admin/
-  assets/css/         # 全局样式
-  assets/js/          # 共享 JavaScript 模块
-```
+- **本仓库**：仅含 `README.md` + 源代码
+- **详细文档**（`D:\VScode-AI\together\docs\`，不入仓库）：
+  - `README.md` — 全部文档导航
+  - `04-实施计划/P4开发任务清单.md` — 10 个 DEV 详细说明（v0.7）
+  - `05-开发过程/P4开发过程.md` — 开发日志与验证记录（16 项验证）
+  - `02-系统设计/系统设计说明书.md` — 整体架构
+  - `01-需求分析/产品需求文档.md` — 需求基线
