@@ -5,7 +5,7 @@
 - **远程**：`origin/feature/templates-admin`
 - **负责模块**：合同模板 CRUD + 管理员用户管理 + 数据看板
 - **开始日期**：2026-07-08
-- **当前进度**：P4-DEV-05 / 10 完成（阶段 A+B 完成）
+- **当前进度**：P4-DEV-05 / 10 完成（阶段 A+B 完成，后端全部通过本地验证）
 
 ---
 
@@ -13,18 +13,22 @@
 
 ```
 main (29372e4)
-  └── feature/templates-admin (bd74e84)  ← P4 当前分支
-        └── feat: 模板 Schema
+  └── feature/templates-admin (2ecd795)  ← P4 当前分支
+        ├── feat: 模板 Schema
+        ├── feat: 模板服务
+        ├── feat: 管理员服务
+        ├── feat: 模板路由
+        └── feat: 管理员路由 + README 重命名
 
 feature/auth-infra                       ← P1 分支（参考 API）
 ```
 
 | 属性 | 值 |
 |------|-----|
-| 当前 commit | `bd74e84` |
+| 当前 commit | `2ecd795` |
 | 基础 commit | `29372e4`（项目基线文档） |
-| 文件数 | 1（`backend/app/schemas/templates.py`） |
-| 未推送 | 无 |
+| P4 文件数 | 5（schemas 1 + services 2 + routes 2） |
+| 未推送 | 有 |
 
 ---
 
@@ -120,7 +124,29 @@ feature/auth-infra                       ← P1 分支（参考 API）
 
 ---
 
-## 六、关键架构模式
+## 六、本地验证结果（2026-07-09）
+
+| # | 端点 | 验证项 | 结果 |
+|---|------|--------|------|
+| 1 | GET `/api/v1/templates/` | admin 全量列表 | ✅ |
+| 2 | GET `/api/v1/templates/` | handler 仅见启用的 | ✅ |
+| 3 | POST `/api/v1/templates/` | 创建模板 | ✅ |
+| 4 | PUT `/api/v1/templates/{id}` | 编辑模板 | ✅ |
+| 5 | PATCH `/api/v1/templates/{id}/status` | 停用/启用 | ✅ |
+| 6 | PUT `/api/v1/templates/nonexistent` | 404 "模板不存在" | ✅ |
+| 7 | GET `/api/v1/admin/users` | 用户列表 | ✅ |
+| 8 | POST `/api/v1/admin/users` | 创建用户 | ✅ |
+| 9 | POST dup username | 409 "用户名已存在" | ✅ |
+| 10 | POST invalid role | 422 "无效的角色类型" | ✅ |
+| 11 | PATCH `/api/v1/admin/users/{id}/status` | 禁用/启用用户 | ✅ |
+| 12 | PATCH nonexistent user | 404 "用户不存在" | ✅ |
+| 13 | GET `/api/v1/admin/stats` | 数据看板 | ✅ |
+| 14 | 无 cookie | 401 "请先登录" | ✅ |
+| 15 | handler → admin 端点 | 403 "权限不足" | ✅ |
+
+---
+
+## 七、关键架构模式
 
 ```python
 # Service 构造（参考 P1 AuthService）
@@ -142,14 +168,14 @@ class TemplateService:
 def get_template_service(store=Depends(get_store)) -> TemplateService:
     return TemplateService(JsonRepository(store))
 
-# main.py 注册（取消 P1 预留的注释）
-# app.include_router(templates.router)   ← P4
-# app.include_router(admin.router)       ← P4
+# main.py 注册（P4 路由已激活）
+app.include_router(templates.router)   # ← P4 ✅
+app.include_router(admin.router)       # ← P4 ✅
 ```
 
 ---
 
-## 七、开发环境
+## 八、开发环境
 
 ```bash
 # 安装依赖（需要先切换到 feature/auth-infra 查看 P1 代码）
@@ -165,7 +191,7 @@ python -m uvicorn app.main:app --reload
 
 ---
 
-## 八、Git 工作流
+## 九、Git 工作流
 
 ```bash
 # 每完成一个 DEV：
@@ -186,12 +212,12 @@ git push origin feature/templates-admin
 
 ---
 
-## 九、文档索引
+## 十、文档索引
 
-- **本仓库**：仅含 `P4-README.md` + 源代码
+- **本仓库**：仅含 `README.md` + 源代码
 - **详细文档**（`D:\VScode-AI\together\docs\`，不入仓库）：
   - `README.md` — 全部文档导航
-  - `04-实施计划/P4开发任务清单.md` — 10 个 DEV 详细说明（v0.3）
-  - `05-开发过程/P4开发过程.md` — 开发日志与验证记录
+  - `04-实施计划/P4开发任务清单.md` — 10 个 DEV 详细说明（v0.7）
+  - `05-开发过程/P4开发过程.md` — 开发日志与验证记录（16 项验证）
   - `02-系统设计/系统设计说明书.md` — 整体架构
   - `01-需求分析/产品需求文档.md` — 需求基线
